@@ -77,11 +77,21 @@ export interface Translations {
   tipSuburban: string;
   tipTrain: string;
   tipHighSpeed: string;
+  admobTitle: string;
+  admobSubtitle: string;
+  advertisement: string;
+  adMobBanner: string;
+  adClientId: string;
+  adSlotId: string;
+  saveAdConfig: string;
+  adConfigSaved: string;
+  adMobTestNotice: string;
+  closeAd: string;
 }
 
 export const TRANSLATIONS: Record<Language, Translations> = {
   fr: {
-    appName: 'TransitAlarm',
+    appName: 'arreva',
     tagline: "Alerte d'arrivée GPS",
     noAccountRequired: 'Sans compte ni inscription',
     googleMaps: 'Google Maps',
@@ -151,9 +161,19 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     tipSuburban: 'RER / Banlieue',
     tipTrain: 'TER / Train',
     tipHighSpeed: 'TGV / Express',
+    admobTitle: 'Configuration AdMob / Publicité',
+    admobSubtitle: 'Identifiants de monétisation Google AdMob / AdSense',
+    advertisement: 'Sponsorisé',
+    adMobBanner: 'Bannière AdMob',
+    adClientId: 'ID Éditeur (ex: ca-pub-XXXXXXXXXXXXXXXX)',
+    adSlotId: "ID Bloc d'annonces (ex: 1234567890)",
+    saveAdConfig: 'Enregistrer la configuration',
+    adConfigSaved: 'Configuration AdMob enregistrée',
+    adMobTestNotice: 'Bannière active au format standard mobile 320x50',
+    closeAd: 'Fermer',
   },
   en: {
-    appName: 'TransitAlarm',
+    appName: 'arreva',
     tagline: 'GPS Arrival Alert',
     noAccountRequired: 'No account needed',
     googleMaps: 'Google Maps',
@@ -223,9 +243,19 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     tipSuburban: 'Suburban / Commuter',
     tipTrain: 'Regional Train',
     tipHighSpeed: 'High Speed Train',
+    admobTitle: 'AdMob / Ads Configuration',
+    admobSubtitle: 'Google AdMob / AdSense monetization IDs',
+    advertisement: 'Sponsored',
+    adMobBanner: 'AdMob Banner',
+    adClientId: 'Publisher ID (e.g. ca-pub-XXXXXXXXXXXXXXXX)',
+    adSlotId: 'Ad Unit Slot ID (e.g. 1234567890)',
+    saveAdConfig: 'Save Configuration',
+    adConfigSaved: 'AdMob configuration saved',
+    adMobTestNotice: 'Standard 320x50 Mobile Ad Banner Active',
+    closeAd: 'Close',
   },
   ar: {
-    appName: 'منبه الترانزيت',
+    appName: 'أريفا - arreva',
     tagline: 'منبه الوصول عبر GPS',
     noAccountRequired: 'بدون تسجيل أو حساب',
     googleMaps: 'خرائط جوجل',
@@ -295,5 +325,15 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     tipSuburban: 'قطار ضواحي',
     tipTrain: 'قطار إقليمي',
     tipHighSpeed: 'قطار فائق السرعة',
+    admobTitle: 'إعدادات الإعلانات / AdMob',
+    admobSubtitle: 'معرفات تحقيق الدخل من Google AdMob / AdSense',
+    advertisement: 'إعلان ممول',
+    adMobBanner: 'بانر إعلاني AdMob',
+    adClientId: 'معرف الناشر (مثال: ca-pub-XXXXXXXXXXXXXXXX)',
+    adSlotId: 'معرف الوحدة الإعلانية (مثال: 1234567890)',
+    saveAdConfig: 'حفظ الإعدادات',
+    adConfigSaved: 'تم حفظ إعدادات AdMob',
+    adMobTestNotice: 'بانر إعلاني للهاتف المحمول بنسق 320x50 مفعّل',
+    closeAd: 'إغلاق',
   },
 };

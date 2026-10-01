@@ -1,7 +1,7 @@
 /**
- * TransitAlarm - Application d'alerte et réveil GPS pour les transports
+ * arreva - Application d'alerte et réveil GPS pour les transports
  * Support Google Maps Platform & OpenStreetMap
- * Support Multilingue (Français, Anglais, Arabe) & Agrandissement de texte
+ * Support Multilingue (Français, Anglais, Arabe), Agrandissement de texte & AdMob
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -11,8 +11,8 @@ import {
   Music,
   Star,
   Map as MapIcon,
-  Globe,
   Type,
+  Megaphone,
 } from 'lucide-react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Coordinates, calculateHaversineDistance } from './utils/geo';
@@ -24,6 +24,8 @@ import { TrackingHUD } from './components/TrackingHUD';
 import { AlertModal } from './components/AlertModal';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
 import { FavoritesModal, FavoriteLocation } from './components/FavoritesModal';
+import { AdBanner } from './components/AdBanner';
+import { AdSettingsModal } from './components/AdSettingsModal';
 import { Language, TextSize, TRANSLATIONS } from './utils/i18n';
 
 const GOOGLE_MAPS_API_KEY =
@@ -65,6 +67,31 @@ export default function App() {
   // Moteur de carte : 'google' par défaut
   const [mapEngine, setMapEngine] = useState<'google' | 'leaflet'>('google');
   const [quotaExceeded, setQuotaExceeded] = useState<boolean>(false);
+
+  // Configuration AdMob / Monétisation
+  const [adClientId, setAdClientId] = useState<string>(() => {
+    try {
+      return (
+        localStorage.getItem('transit_ad_client') ||
+        (import.meta.env.VITE_ADMOB_CLIENT_ID as string) ||
+        ''
+      );
+    } catch {
+      return '';
+    }
+  });
+  const [adSlotId, setAdSlotId] = useState<string>(() => {
+    try {
+      return (
+        localStorage.getItem('transit_ad_slot') ||
+        (import.meta.env.VITE_ADMOB_SLOT_ID as string) ||
+        ''
+      );
+    } catch {
+      return '';
+    }
+  });
+  const [isAdSettingsOpen, setIsAdSettingsOpen] = useState<boolean>(false);
 
   // États de localisation
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
@@ -304,6 +331,18 @@ export default function App() {
     setFavorites((prev) => prev.filter((f) => f.id !== id));
   };
 
+  // Sauvegarde config AdMob
+  const handleSaveAdConfig = (client: string, slot: string) => {
+    setAdClientId(client);
+    setAdSlotId(slot);
+    try {
+      localStorage.setItem('transit_ad_client', client);
+      localStorage.setItem('transit_ad_slot', slot);
+    } catch {
+      // ignore
+    }
+  };
+
   // Basculer le mode simulation
   const handleToggleSimulation = () => {
     if (isTracking) {
@@ -403,7 +442,7 @@ export default function App() {
             </span>
           </div>
 
-          {/* Zone 2: Contrôles rapides (Langue, Taille texte, Moteur de carte, Sons & Favoris) */}
+          {/* Zone 2: Contrôles rapides */}
           <div className="flex items-center gap-1 sm:gap-1.5">
             {/* Sélecteur de Langue (FR / EN / AR) */}
             <div className="flex items-center bg-slate-800/80 rounded-xl p-0.5 border border-slate-700/60">
@@ -472,6 +511,16 @@ export default function App() {
               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
               <span className="hidden lg:inline">{t.favorites}</span>
             </button>
+
+            {/* Bouton Paramètres AdMob */}
+            <button
+              onClick={() => setIsAdSettingsOpen(true)}
+              type="button"
+              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-amber-400 hover:text-amber-300 border border-slate-700/60 transition-colors"
+              title={t.admobTitle}
+            >
+              <Megaphone className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           {/* Zone 3: Action rapide / réinitialisation */}
@@ -503,11 +552,19 @@ export default function App() {
             t={t}
             lang={lang}
           />
+
+          {/* Bannière Mobile AdMob (Non-intrusive) */}
+          <AdBanner
+            clientId={adClientId}
+            slotId={adSlotId}
+            t={t}
+            onOpenSettings={() => setIsAdSettingsOpen(true)}
+          />
         </div>
 
         {/* Notification discrète d'erreur GPS s'il y a lieu */}
         {geoError && (
-          <div className="absolute top-28 left-4 right-4 z-[450] max-w-md mx-auto pointer-events-none">
+          <div className="absolute top-36 left-4 right-4 z-[450] max-w-md mx-auto pointer-events-none">
             <div className="bg-amber-500/10 border border-amber-500/30 backdrop-blur-md rounded-2xl p-2.5 flex items-center gap-2.5 text-xs text-amber-200 shadow-lg pointer-events-auto">
               <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
               <span className="flex-1 text-[11px] leading-tight">{geoError}</span>
@@ -596,6 +653,16 @@ export default function App() {
           onDeleteFavorite={handleDeleteFavorite}
           currentDestination={destination}
           currentDestinationName={destinationAddress}
+          t={t}
+        />
+
+        {/* Modal de configuration AdMob */}
+        <AdSettingsModal
+          isOpen={isAdSettingsOpen}
+          onClose={() => setIsAdSettingsOpen(false)}
+          clientId={adClientId}
+          slotId={adSlotId}
+          onSaveConfig={handleSaveAdConfig}
           t={t}
         />
       </div>
