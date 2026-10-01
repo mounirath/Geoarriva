@@ -1,28 +1,76 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, MapPin, Loader2, Compass } from 'lucide-react';
 import { Coordinates, searchLocation, GeocodingResult } from '../utils/geo';
+import { Translations, Language } from '../utils/i18n';
 
 interface SearchBarProps {
   onSelectLocation: (coords: Coordinates, label: string) => void;
   destinationAddress: string | null;
   onClearDestination: () => void;
+  t: Translations;
+  lang: Language;
 }
 
-// Suggestions de points d'intérêt fréquents dans les transports
-const TRANSIT_SUGGESTIONS = [
-  { label: 'Gare de Lyon, Paris', lat: 48.8443, lng: 2.3744 },
-  { label: 'Gare Montparnasse, Paris', lat: 48.8412, lng: 2.3205 },
-  { label: 'Gare du Nord, Paris', lat: 48.8809, lng: 2.3553 },
-  { label: 'Aéroport Charles de Gaulle (CDG)', lat: 49.0097, lng: 2.5479 },
-  { label: 'La Défense, Grande Arche', lat: 48.8924, lng: 2.2361 },
-  { label: 'Gare Part-Dieu, Lyon', lat: 45.7606, lng: 4.8594 },
-  { label: 'Gare Saint-Charles, Marseille', lat: 43.3032, lng: 5.3806 },
+// Suggestions de points d'intérêt fréquents avec libellés multilingues
+const GET_TRANSIT_SUGGESTIONS = (lang: Language) => [
+  {
+    label:
+      lang === 'ar'
+        ? 'محطة ليون، باريس'
+        : lang === 'en'
+        ? 'Gare de Lyon, Paris'
+        : 'Gare de Lyon, Paris',
+    lat: 48.8443,
+    lng: 2.3744,
+  },
+  {
+    label:
+      lang === 'ar'
+        ? 'محطة مونبارناس، باريس'
+        : lang === 'en'
+        ? 'Gare Montparnasse, Paris'
+        : 'Gare Montparnasse, Paris',
+    lat: 48.8412,
+    lng: 2.3205,
+  },
+  {
+    label:
+      lang === 'ar'
+        ? 'مطار باريس شارل ديغول (CDG)'
+        : lang === 'en'
+        ? 'Paris Charles de Gaulle Airport (CDG)'
+        : 'Aéroport Charles de Gaulle (CDG)',
+    lat: 49.0097,
+    lng: 2.5479,
+  },
+  {
+    label:
+      lang === 'ar'
+        ? 'لا ديفانس - القوس الكبير'
+        : lang === 'en'
+        ? 'La Défense, Grande Arche'
+        : 'La Défense, Grande Arche',
+    lat: 48.8924,
+    lng: 2.2361,
+  },
+  {
+    label:
+      lang === 'ar'
+        ? 'محطة بارت ديو، ليون'
+        : lang === 'en'
+        ? 'Gare Part-Dieu, Lyon'
+        : 'Gare Part-Dieu, Lyon',
+    lat: 45.7606,
+    lng: 4.8594,
+  },
 ];
 
 export const SearchBar: React.FC<SearchBarProps> = ({
   onSelectLocation,
   destinationAddress,
   onClearDestination,
+  t,
+  lang,
 }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<GeocodingResult[]>([]);
@@ -30,14 +78,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  // Synchroniser la barre si une destination a été choisie par clic
+  const transitSuggestions = GET_TRANSIT_SUGGESTIONS(lang);
+
   useEffect(() => {
     if (destinationAddress) {
       setQuery(destinationAddress);
     }
   }, [destinationAddress]);
 
-  // Debounced search
   useEffect(() => {
     if (!query || query.trim().length < 3 || query === destinationAddress) {
       setResults([]);
@@ -55,7 +103,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     return () => clearTimeout(timer);
   }, [query, destinationAddress]);
 
-  // Fermer la liste déroulante au clic extérieur
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -89,7 +136,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
       <div className="relative flex items-center">
         {/* Champ de recherche */}
         <div className="relative w-full flex items-center bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-700/80 shadow-2xl overflow-hidden focus-within:border-amber-500/80 focus-within:ring-1 focus-within:ring-amber-500/50 transition-all">
-          <div className="pl-3.5 pr-2 text-slate-400">
+          <div className="px-3 text-slate-400">
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
             ) : (
@@ -105,15 +152,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               setIsOpen(true);
             }}
             onFocus={() => setIsOpen(true)}
-            placeholder="Rechercher une gare, arrêt ou adresse..."
-            className="w-full py-2.5 pr-10 text-xs sm:text-sm bg-transparent text-slate-100 placeholder-slate-400 focus:outline-none"
+            placeholder={t.searchPlaceholder}
+            className="w-full py-2.5 px-2 text-xs sm:text-sm bg-transparent text-slate-100 placeholder-slate-400 focus:outline-none"
           />
 
           {query && (
             <button
               onClick={handleClear}
-              className="absolute right-2.5 w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-              title="Effacer"
+              className="px-2.5 py-1 text-slate-400 hover:text-white transition-colors"
+              title={t.clear}
             >
               <X className="w-4 h-4" />
             </button>
@@ -128,7 +175,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           {results.length > 0 ? (
             <div className="py-1">
               <div className="px-3.5 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                Résultats de recherche
+                {t.searchPlaceholder}
               </div>
               {results.map((res, index) => (
                 <button
@@ -136,7 +183,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                   onClick={() =>
                     handleSelect({ lat: res.lat, lng: res.lng }, res.displayName)
                   }
-                  className="w-full text-left px-3.5 py-2.5 flex items-start gap-3 hover:bg-slate-800/70 transition-colors group"
+                  className="w-full text-start px-3.5 py-2.5 flex items-start gap-3 hover:bg-slate-800/70 transition-colors group"
                 >
                   <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
                   <span className="text-xs text-slate-200 line-clamp-2 group-hover:text-white">
@@ -147,7 +194,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             </div>
           ) : query.trim().length >= 3 && !isLoading ? (
             <div className="px-4 py-4 text-center text-xs text-slate-400">
-              Aucun résultat trouvé pour cette adresse. Touchez directement la carte.
+              {t.searchNoResults}
             </div>
           ) : null}
 
@@ -156,15 +203,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             <div className="py-1">
               <div className="px-3.5 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Compass className="w-3.5 h-3.5 text-amber-400" />
-                <span>Points d'intérêt fréquents</span>
+                <span>{t.frequentStops}</span>
               </div>
-              {TRANSIT_SUGGESTIONS.map((item, idx) => (
+              {transitSuggestions.map((item, idx) => (
                 <button
                   key={idx}
                   onClick={() =>
                     handleSelect({ lat: item.lat, lng: item.lng }, item.label)
                   }
-                  className="w-full text-left px-3.5 py-2 flex items-center gap-2.5 hover:bg-slate-800/70 transition-colors"
+                  className="w-full text-start px-3.5 py-2 flex items-center gap-2.5 hover:bg-slate-800/70 transition-colors"
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
                   <span className="text-xs text-slate-300 truncate">{item.label}</span>

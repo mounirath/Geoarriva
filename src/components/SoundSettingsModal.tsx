@@ -2,18 +2,16 @@ import React, { useState } from 'react';
 import {
   X,
   Volume2,
-  VolumeX,
   Play,
   Check,
   Music,
-  Sliders,
-  Sparkles,
 } from 'lucide-react';
 import {
   SoundType,
   SOUND_OPTIONS,
   alertSystem,
 } from '../utils/audioAlert';
+import { Translations, Language } from '../utils/i18n';
 
 interface SoundSettingsModalProps {
   isOpen: boolean;
@@ -22,7 +20,93 @@ interface SoundSettingsModalProps {
   onSelectSound: (sound: SoundType) => void;
   volume: number;
   onChangeVolume: (volume: number) => void;
+  t: Translations;
+  lang: Language;
 }
+
+const LOCALIZED_SOUNDS: Record<Language, Record<SoundType, { name: string; desc: string; badge: string }>> = {
+  fr: {
+    station_chime: {
+      name: 'Carillon Ferroviaire',
+      desc: 'Jingle mélodique à 4 notes inspiré des annonces de gare',
+      badge: '🚆 Gare',
+    },
+    transit_siren: {
+      name: "Sirène d'Urgence",
+      desc: 'Double tonalité percutante pour réveil garanti',
+      badge: '🚨 Fort',
+    },
+    digital_alarm: {
+      name: 'Bip Digital Rétro',
+      desc: 'Séquence rapide de bips cadencés style montre digitale',
+      badge: '⏰ Classique',
+    },
+    radar_sonar: {
+      name: "Radar d'Approche",
+      desc: 'Pulsations sonar progressives avec sweep de fréquence',
+      badge: '📡 Radar',
+    },
+    zen_bell: {
+      name: 'Clochette Douce',
+      desc: 'Sons harmoniques zen pour rames silencieuses',
+      badge: '🔔 Discret',
+    },
+  },
+  en: {
+    station_chime: {
+      name: 'Train Station Chime',
+      desc: '4-note melodic jingle inspired by station announcements',
+      badge: '🚆 Station',
+    },
+    transit_siren: {
+      name: 'Emergency Siren',
+      desc: 'Piercing dual-tone siren for heavy sleepers',
+      badge: '🚨 Loud',
+    },
+    digital_alarm: {
+      name: 'Retro Digital Beep',
+      desc: 'Fast-paced rhythmic digital watch beeps',
+      badge: '⏰ Classic',
+    },
+    radar_sonar: {
+      name: 'Approach Radar',
+      desc: 'Progressive sonar pulses with frequency sweep',
+      badge: '📡 Radar',
+    },
+    zen_bell: {
+      name: 'Zen Bell',
+      desc: 'Gentle harmonic bell chime for quiet cabins',
+      badge: '🔔 Gentle',
+    },
+  },
+  ar: {
+    station_chime: {
+      name: 'جرس المحطة الموسيقي',
+      desc: 'نغمة لحنية من 4 نغمات مستوحاة من محطات القطار',
+      badge: '🚆 محطة',
+    },
+    transit_siren: {
+      name: 'صفارة إنذار قوية',
+      desc: 'نغمة مزدوجة عالية النبرة للاستيقاظ المؤكد',
+      badge: '🚨 قوي',
+    },
+    digital_alarm: {
+      name: 'منبه رقمي كلاسيكي',
+      desc: 'سلسلة نغمات رقمية سريعة كالساعات الرقمية',
+      badge: '⏰ كلاسيكي',
+    },
+    radar_sonar: {
+      name: 'رادار الاقتراب',
+      desc: 'نبضات سونار متصاعدة مع مسح ترددي',
+      badge: '📡 رادار',
+    },
+    zen_bell: {
+      name: 'جرس هادئ لطيف',
+      desc: 'نغمات هادئة متناغمة لعربات القطار الصامتة',
+      badge: '🔔 هادئ',
+    },
+  },
+};
 
 export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
   isOpen,
@@ -31,10 +115,14 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
   onSelectSound,
   volume,
   onChangeVolume,
+  t,
+  lang,
 }) => {
   const [playingId, setPlayingId] = useState<SoundType | null>(null);
 
   if (!isOpen) return null;
+
+  const localizedSoundMap = LOCALIZED_SOUNDS[lang] || LOCALIZED_SOUNDS.fr;
 
   const handlePreview = (soundId: SoundType) => {
     alertSystem.ensureAudioContext();
@@ -69,10 +157,10 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white">
-                Sons & Sonneries d'alarme
+                {t.soundsModalTitle}
               </h3>
               <p className="text-xs text-slate-400">
-                Personnalisez la sonnerie du réveil d'arrivée
+                {t.soundsModalSubtitle}
               </p>
             </div>
           </div>
@@ -90,7 +178,7 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
           <div className="flex items-center justify-between text-xs">
             <span className="font-semibold text-slate-300 flex items-center gap-1.5">
               <Volume2 className="w-3.5 h-3.5 text-amber-400" />
-              Volume de l'alarme
+              {t.alarmVolume}
             </span>
             <span className="font-mono font-bold text-amber-400">
               {Math.round(volume * 100)}%
@@ -113,6 +201,11 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
           {SOUND_OPTIONS.map((sound) => {
             const isSelected = selectedSound === sound.id;
             const isPlaying = playingId === sound.id;
+            const info = localizedSoundMap[sound.id] || {
+              name: sound.name,
+              desc: sound.description,
+              badge: sound.badge,
+            };
 
             return (
               <div
@@ -142,14 +235,14 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="text-xs sm:text-sm font-bold text-slate-100 truncate">
-                        {sound.name}
+                        {info.name}
                       </span>
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 shrink-0">
-                        {sound.badge}
+                        {info.badge}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
-                      {sound.description}
+                      {info.desc}
                     </p>
                   </div>
                 </div>
@@ -166,7 +259,7 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
                       ? 'bg-amber-500 text-slate-950 border-amber-400 scale-105'
                       : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
                   }`}
-                  title="Écouter un extrait"
+                  title={t.listenPreview}
                 >
                   <Play
                     className={`w-3.5 h-3.5 fill-current ${
@@ -185,7 +278,7 @@ export const SoundSettingsModal: React.FC<SoundSettingsModalProps> = ({
             onClick={onClose}
             className="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-colors"
           >
-            Confirmer la sonnerie
+            {t.confirmSound}
           </button>
         </div>
       </div>

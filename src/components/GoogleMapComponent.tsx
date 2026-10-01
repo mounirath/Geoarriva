@@ -10,6 +10,7 @@ import {
 } from '@vis.gl/react-google-maps';
 import { Coordinates } from '../utils/geo';
 import { Navigation, Locate, Eye, Layers } from 'lucide-react';
+import { Translations } from '../utils/i18n';
 
 interface GoogleMapComponentProps {
   userLocation: Coordinates | null;
@@ -20,6 +21,7 @@ interface GoogleMapComponentProps {
   alertRadius: number; // in meters
   isTracking: boolean;
   distanceToDestination: number | null;
+  t: Translations;
 }
 
 // Composant Overlay pour le cercle de rayon d'alerte (Geofence)
@@ -153,7 +155,8 @@ const MapCameraControls: React.FC<{
   destination: Coordinates | null;
   mapTypeId: string;
   onToggleMapType: () => void;
-}> = ({ userLocation, destination, mapTypeId, onToggleMapType }) => {
+  t: Translations;
+}> = ({ userLocation, destination, mapTypeId, onToggleMapType, t }) => {
   const map = useMap();
 
   const handleRecenterUser = () => {
@@ -198,7 +201,7 @@ const MapCameraControls: React.FC<{
         onClick={handleRecenterUser}
         disabled={!userLocation}
         type="button"
-        title="Me localiser"
+        title={t.locateMe}
         className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
       >
         <Locate className="w-5 h-5 text-blue-400" />
@@ -209,7 +212,7 @@ const MapCameraControls: React.FC<{
         <button
           onClick={handleRecenterDestination}
           type="button"
-          title="Aller à la destination"
+          title={t.goToDest}
           className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800"
         >
           <Navigation className="w-5 h-5 text-rose-400" />
@@ -221,7 +224,7 @@ const MapCameraControls: React.FC<{
         <button
           onClick={handleFitBounds}
           type="button"
-          title="Ajuster la vue du trajet"
+          title={t.fitView}
           className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800"
         >
           <Eye className="w-5 h-5 text-amber-400" />
@@ -232,7 +235,7 @@ const MapCameraControls: React.FC<{
       <button
         onClick={onToggleMapType}
         type="button"
-        title="Changer de vue (Plan / Satellite)"
+        title={t.changeMapStyle}
         className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800 text-xs"
       >
         <Layers className="w-5 h-5 text-slate-300" />
@@ -250,10 +253,11 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   alertRadius,
   isTracking,
   distanceToDestination,
+  t,
 }) => {
   const [mapTypeId, setMapTypeId] = useState<string>('roadmap');
 
-  const defaultCenter = userLocation || { lat: 48.8566, lng: 2.3522 }; // Paris centre
+  const defaultCenter = userLocation || { lat: 48.8566, lng: 2.3522 };
 
   const isInsideRadius =
     distanceToDestination !== null && distanceToDestination <= alertRadius;
@@ -286,7 +290,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       >
         {/* Marqueur de position actuelle utilisateur (Pulsation lumineuse) */}
         {userLocation && (
-          <AdvancedMarker position={userLocation} title="Votre position actuelle">
+          <AdvancedMarker position={userLocation} title={t.locateMe}>
             <div className="relative flex items-center justify-center w-7 h-7">
               <div className="absolute w-7 h-7 rounded-full bg-blue-500/30 user-pulse-marker" />
               <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-md shadow-blue-500/50" />
@@ -311,7 +315,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
                 onSelectDestination({ lat, lng });
               }
             }}
-            title="Point d'arrivée (destination)"
+            title={t.arrivalPoint}
           >
             <Pin
               background="#e11d48"
@@ -348,6 +352,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           onToggleMapType={() =>
             setMapTypeId((prev) => (prev === 'roadmap' ? 'hybrid' : 'roadmap'))
           }
+          t={t}
         />
       </Map>
 
@@ -356,7 +361,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 pointer-events-none transition-all">
           <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-4 py-2 rounded-full shadow-xl flex items-center gap-2 text-xs font-medium text-slate-200">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-            <span>Touchez la carte Google pour poser votre destination</span>
+            <span>{t.tapMapToSetDest}</span>
           </div>
         </div>
       )}

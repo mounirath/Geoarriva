@@ -1,20 +1,21 @@
 /**
  * TransitAlarm - Application d'alerte et réveil GPS pour les transports
- * Support Google Maps Platform (@vis.gl/react-google-maps) & OpenStreetMap
+ * Support Google Maps Platform & OpenStreetMap
+ * Support Multilingue (Français, Anglais, Arabe) & Agrandissement de texte
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  MapPin,
   Compass,
   AlertTriangle,
   Music,
   Star,
-  Sparkles,
   Map as MapIcon,
+  Globe,
+  Type,
 } from 'lucide-react';
 import { APIProvider } from '@vis.gl/react-google-maps';
-import { Coordinates, calculateHaversineDistance, formatDistance } from './utils/geo';
+import { Coordinates, calculateHaversineDistance } from './utils/geo';
 import { alertSystem, SoundType, SOUND_OPTIONS } from './utils/audioAlert';
 import { GoogleMapComponent } from './components/GoogleMapComponent';
 import { MapComponent as LeafletMapComponent } from './components/MapComponent';
@@ -23,6 +24,7 @@ import { TrackingHUD } from './components/TrackingHUD';
 import { AlertModal } from './components/AlertModal';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
 import { FavoritesModal, FavoriteLocation } from './components/FavoritesModal';
+import { Language, TextSize, TRANSLATIONS } from './utils/i18n';
 
 const GOOGLE_MAPS_API_KEY =
   (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) ||
@@ -37,7 +39,30 @@ const INITIAL_FAVORITES: FavoriteLocation[] = [
 ];
 
 export default function App() {
-  // Moteur de carte : 'google' par défaut suite à la demande utilisateur
+  // Langue et Direction
+  const [lang, setLang] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem('transit_lang');
+      return (saved as Language) || 'fr';
+    } catch {
+      return 'fr';
+    }
+  });
+
+  // Agrandissement de caractère (Accessibilité)
+  const [textSize, setTextSize] = useState<TextSize>(() => {
+    try {
+      const saved = localStorage.getItem('transit_text_size');
+      return (saved as TextSize) || 'normal';
+    } catch {
+      return 'normal';
+    }
+  });
+
+  // Traduction courante
+  const t = TRANSLATIONS[lang];
+
+  // Moteur de carte : 'google' par défaut
   const [mapEngine, setMapEngine] = useState<'google' | 'leaflet'>('google');
   const [quotaExceeded, setQuotaExceeded] = useState<boolean>(false);
 
@@ -77,6 +102,29 @@ export default function App() {
   // Références d'observation de géolocalisation
   const watchIdRef = useRef<number | null>(null);
 
+  // Sauvegarde des préférences
+  useEffect(() => {
+    try {
+      localStorage.setItem('transit_lang', lang);
+    } catch (e) {
+      // ignore
+    }
+  }, [lang]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('transit_text_size', textSize);
+    } catch (e) {
+      // ignore
+    }
+  }, [textSize]);
+
+  // Synchronisation document HTML pour direction RTL en Arabe
+  useEffect(() => {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  }, [lang]);
+
   // Détection du quota Google Maps Platform
   useEffect(() => {
     const handleQuotaExceeded = () => {
@@ -88,7 +136,7 @@ export default function App() {
     };
   }, []);
 
-  // Sauvegarde des favoris dans localStorage
+  // Sauvegarde des favoris
   useEffect(() => {
     try {
       localStorage.setItem('transit_favorites', JSON.stringify(favorites));
@@ -97,7 +145,7 @@ export default function App() {
     }
   }, [favorites]);
 
-  // Initialisation : Obtenir la position actuelle au montage
+  // Position actuelle au montage
   useEffect(() => {
     if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
@@ -118,15 +166,15 @@ export default function App() {
           const fallbackCoords: Coordinates = { lat: 48.8606, lng: 2.3472 };
           setUserLocation(fallbackCoords);
           setUserAccuracy(25);
-          setGeoError('Position GPS non accessible ou bloquée. Utilisation de la position de test.');
+          setGeoError(t.gpsBlockedFallback);
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 5000 }
       );
     } else {
       setUserLocation({ lat: 48.8606, lng: 2.3472 });
-      setGeoError('La géolocalisation n\'est pas supportée par ce navigateur.');
+      setGeoError(t.gpsNotSupported);
     }
-  }, []);
+  }, [t]);
 
   // Calcul en direct de la distance entre l'utilisateur et la destination
   const distanceToDestination =
@@ -224,7 +272,7 @@ export default function App() {
   const handleSelectDestinationFromMap = (coords: Coordinates) => {
     if (isTracking) return;
     setDestination(coords);
-    setDestinationAddress(`Point d'arrivée (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
+    setDestinationAddress(`${t.arrivalPoint} (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
   };
 
   // Définir la destination depuis la recherche ou un favori
@@ -269,7 +317,13 @@ export default function App() {
       const dest: Coordinates = { lat: 48.8738, lng: 2.2950 };
       setUserLocation(start);
       setDestination(dest);
-      setDestinationAddress('Arc de Triomphe (Démo Simulation)');
+      setDestinationAddress(
+        lang === 'ar'
+          ? 'قوس النصر (تجربة محاكاة)'
+          : lang === 'en'
+          ? 'Arc de Triomphe (Demo Simulation)'
+          : 'Arc de Triomphe (Démo Simulation)'
+      );
       setAlertRadius(800);
     }
   };
@@ -282,6 +336,19 @@ export default function App() {
     setUserLocation({ lat: newLat, lng: newLng });
     setCurrentSpeed(13.8); // 50 km/h
   };
+
+  // Bascule cyclique de la taille du texte (Normal -> Grand -> Très Grand)
+  const cycleTextSize = () => {
+    setTextSize((prev) => {
+      if (prev === 'normal') return 'large';
+      if (prev === 'large') return 'xlarge';
+      return 'normal';
+    });
+  };
+
+  const textSizeBadge = textSize === 'normal' ? 'A' : textSize === 'large' ? 'A+' : 'A++';
+  const textSizeLabel =
+    textSize === 'normal' ? t.normalText : textSize === 'large' ? t.largeText : t.xlargeText;
 
   const currentSoundName =
     SOUND_OPTIONS.find((s) => s.id === selectedSound)?.name || 'Carillon';
@@ -301,8 +368,11 @@ export default function App() {
   }, []);
 
   return (
-    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="fr">
-      <div className="relative w-screen h-screen overflow-hidden bg-slate-950 flex flex-col font-sans select-none">
+    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language={lang}>
+      <div
+        dir={lang === 'ar' ? 'rtl' : 'ltr'}
+        className={`relative w-screen h-screen overflow-hidden bg-slate-950 flex flex-col font-sans select-none text-scale-${textSize}`}
+      >
         {/* Bannière de quota Google Maps Platform si dépassé */}
         {quotaExceeded && (
           <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
@@ -322,70 +392,103 @@ export default function App() {
         )}
 
         {/* Top Bar épurée (1 row, 3 zones) */}
-        <header className="absolute top-0 left-0 right-0 z-[500] h-14 px-4 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between pointer-events-auto">
+        <header className="absolute top-0 left-0 right-0 z-[500] h-14 px-3 sm:px-4 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between pointer-events-auto">
           {/* Zone 1: Marque */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center shadow-md shadow-amber-500/20 text-slate-950 font-black">
               <Compass className="w-5 h-5 text-slate-950" />
             </div>
             <span className="text-base font-bold tracking-tight text-white">
-              TransitAlarm
+              {t.appName}
             </span>
           </div>
 
-          {/* Zone 2: Navigation rapide vers Sons & Favoris & Moteur de carte */}
-          <div className="flex items-center gap-1.5">
+          {/* Zone 2: Contrôles rapides (Langue, Taille texte, Moteur de carte, Sons & Favoris) */}
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            {/* Sélecteur de Langue (FR / EN / AR) */}
+            <div className="flex items-center bg-slate-800/80 rounded-xl p-0.5 border border-slate-700/60">
+              {(['fr', 'en', 'ar'] as Language[]).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLang(l)}
+                  className={`px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all ${
+                    lang === l
+                      ? 'bg-amber-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title={l.toUpperCase()}
+                >
+                  {l === 'fr' ? 'FR' : l === 'en' ? 'EN' : 'عر'}
+                </button>
+              ))}
+            </div>
+
+            {/* Bouton Agrandissement de texte */}
+            <button
+              onClick={cycleTextSize}
+              type="button"
+              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-slate-200 text-xs font-semibold transition-all active:scale-95"
+              title={`${t.textSize}: ${textSizeLabel}`}
+            >
+              <Type className="w-3.5 h-3.5 text-amber-400" />
+              <span className="font-mono text-[11px] font-bold">{textSizeBadge}</span>
+            </button>
+
             {/* Bascule moteur Google Maps / OSM */}
             <button
               onClick={() =>
                 setMapEngine((prev) => (prev === 'google' ? 'leaflet' : 'google'))
               }
               type="button"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium border transition-colors ${
+              className={`flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-medium border transition-colors ${
                 mapEngine === 'google'
                   ? 'bg-blue-600/30 text-blue-300 border-blue-500/50'
                   : 'bg-slate-800/70 text-slate-300 border-slate-700/60'
               }`}
-              title="Changer de moteur cartographique"
+              title={mapEngine === 'google' ? t.googleMaps : t.osm}
             >
               <MapIcon className="w-3.5 h-3.5 text-blue-400" />
-              <span>{mapEngine === 'google' ? 'Google Maps' : 'OSM'}</span>
+              <span className="hidden md:inline">{mapEngine === 'google' ? 'Google' : 'OSM'}</span>
             </button>
 
+            {/* Bouton Sonneries */}
             <button
               onClick={() => setIsSoundModalOpen(true)}
               type="button"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700/60 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700/60 transition-colors"
+              title={t.ringtones}
             >
               <Music className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden sm:inline">Sonneries</span>
+              <span className="hidden lg:inline">{t.ringtones}</span>
             </button>
 
+            {/* Bouton Favoris */}
             <button
               onClick={() => setIsFavoritesModalOpen(true)}
               type="button"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700/60 transition-colors"
+              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700/60 transition-colors"
+              title={t.favorites}
             >
               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
-              <span className="hidden sm:inline">Favoris</span>
+              <span className="hidden lg:inline">{t.favorites}</span>
             </button>
           </div>
 
           {/* Zone 3: Action rapide / réinitialisation */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {destination && !isTracking && (
               <button
                 onClick={handleClearDestination}
                 type="button"
                 className="text-xs font-medium text-slate-400 hover:text-slate-200 px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors"
               >
-                Effacer
+                {t.clear}
               </button>
             )}
 
             {isSimulating && (
-              <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
-                Démo
+              <span className="text-[10px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg">
+                {t.demoBadge}
               </span>
             )}
           </div>
@@ -397,6 +500,8 @@ export default function App() {
             onSelectLocation={handleSelectLocation}
             destinationAddress={destinationAddress}
             onClearDestination={handleClearDestination}
+            t={t}
+            lang={lang}
           />
         </div>
 
@@ -422,6 +527,7 @@ export default function App() {
               alertRadius={alertRadius}
               isTracking={isTracking}
               distanceToDestination={distanceToDestination}
+              t={t}
             />
           ) : (
             <LeafletMapComponent
@@ -433,6 +539,7 @@ export default function App() {
               alertRadius={alertRadius}
               isTracking={isTracking}
               distanceToDestination={distanceToDestination}
+              t={t}
             />
           )}
         </main>
@@ -454,6 +561,7 @@ export default function App() {
           onOpenSoundSettings={() => setIsSoundModalOpen(true)}
           selectedSoundName={currentSoundName}
           onOpenFavorites={() => setIsFavoritesModalOpen(true)}
+          t={t}
         />
 
         {/* Modal / Bannière d'alerte urgente au franchissement du rayon */}
@@ -463,6 +571,7 @@ export default function App() {
           radius={alertRadius}
           destinationAddress={destinationAddress}
           onDismiss={handleStopTracking}
+          t={t}
         />
 
         {/* Modal des réglages de sonneries */}
@@ -473,6 +582,8 @@ export default function App() {
           onSelectSound={setSelectedSound}
           volume={volume}
           onChangeVolume={setVolume}
+          t={t}
+          lang={lang}
         />
 
         {/* Modal des arrêts et trajets favoris */}
@@ -485,6 +596,7 @@ export default function App() {
           onDeleteFavorite={handleDeleteFavorite}
           currentDestination={destination}
           currentDestinationName={destinationAddress}
+          t={t}
         />
       </div>
     </APIProvider>

@@ -1,36 +1,38 @@
 import React from 'react';
-import { BellRing, ShieldAlert } from 'lucide-react';
+import { BellRing } from 'lucide-react';
 import { formatDistance } from '../utils/geo';
+import { Translations } from '../utils/i18n';
 
 interface RadiusSelectorProps {
   radius: number; // in meters
   onChangeRadius: (newRadius: number) => void;
   disabled?: boolean;
+  t: Translations;
 }
-
-const PRESETS = [
-  { label: '200 m', value: 200, tip: 'Métro / Tram' },
-  { label: '500 m', value: 500, tip: 'Bus urbain' },
-  { label: '1 km', value: 1000, tip: 'RER / Banlieue' },
-  { label: '2 km', value: 2000, tip: 'TER / Train' },
-  { label: '5 km', value: 5000, tip: 'TGV / Express' },
-];
 
 export const RadiusSelector: React.FC<RadiusSelectorProps> = ({
   radius,
   onChangeRadius,
   disabled = false,
+  t,
 }) => {
   const currentFormat = formatDistance(radius);
 
-  // Déterminer le tip contextuel
+  const presets = [
+    { label: '200 m', value: 200, tip: t.tipMetro },
+    { label: '500 m', value: 500, tip: t.tipBus },
+    { label: '1 km', value: 1000, tip: t.tipSuburban },
+    { label: '2 km', value: 2000, tip: t.tipTrain },
+    { label: '5 km', value: 5000, tip: t.tipHighSpeed },
+  ];
+
   const activeTip =
-    PRESETS.find((p) => p.value === radius)?.tip ||
+    presets.find((p) => p.value === radius)?.tip ||
     (radius < 400
-      ? 'Alerte très courte'
+      ? t.veryShortAlert
       : radius < 1500
-      ? 'Idéal pour le transport urbain'
-      : 'Idéal pour train rapide');
+      ? t.urbanTransitIdeal
+      : t.fastTrainIdeal);
 
   return (
     <div className="w-full bg-slate-900/90 backdrop-blur-md rounded-2xl border border-slate-800 p-3.5 space-y-2.5">
@@ -38,7 +40,7 @@ export const RadiusSelector: React.FC<RadiusSelectorProps> = ({
         <div className="flex items-center gap-2">
           <BellRing className="w-4 h-4 text-amber-400" />
           <span className="text-xs font-semibold text-slate-200">
-            Rayon d'alerte avant l'arrivée
+            {t.radiusSelectorTitle}
           </span>
         </div>
         <div className="flex items-baseline gap-1 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-lg">
@@ -72,7 +74,7 @@ export const RadiusSelector: React.FC<RadiusSelectorProps> = ({
 
       {/* Boutons de présélection rapide */}
       <div className="grid grid-cols-5 gap-1.5 pt-1">
-        {PRESETS.map((preset) => {
+        {presets.map((preset) => {
           const isSelected = radius === preset.value;
           return (
             <button

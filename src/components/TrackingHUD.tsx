@@ -3,7 +3,6 @@ import {
   Play,
   Square,
   Navigation,
-  Compass,
   Gauge,
   Clock,
   Volume2,
@@ -16,6 +15,7 @@ import {
 import { formatDistance, formatSpeed, estimateRemainingTime } from '../utils/geo';
 import { RadiusSelector } from './RadiusSelector';
 import { alertSystem } from '../utils/audioAlert';
+import { Translations } from '../utils/i18n';
 
 interface TrackingHUDProps {
   isTracking: boolean;
@@ -33,6 +33,7 @@ interface TrackingHUDProps {
   onOpenSoundSettings: () => void;
   selectedSoundName: string;
   onOpenFavorites: () => void;
+  t: Translations;
 }
 
 export const TrackingHUD: React.FC<TrackingHUDProps> = ({
@@ -51,6 +52,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
   onOpenSoundSettings,
   selectedSoundName,
   onOpenFavorites,
+  t,
 }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [soundTested, setSoundTested] = useState(false);
@@ -91,9 +93,9 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
             <span className="text-xs font-semibold text-slate-200">
               {isTracking
                 ? isSimulating
-                  ? 'Suivi actif (Simulation)'
-                  : 'Suivi GPS actif'
-                : 'En attente de départ'}
+                  ? t.trackingSimActive
+                  : t.trackingActive
+                : t.waitingForDeparture}
             </span>
           </div>
 
@@ -101,7 +103,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
             {/* Bouton Choix des Sons */}
             <button
               onClick={onOpenSoundSettings}
-              title="Choisir la sonnerie d'alarme"
+              title={t.ringtones}
               type="button"
               className="py-1 px-2 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-slate-300 hover:text-white text-[11px] flex items-center gap-1.5 transition-all"
             >
@@ -114,7 +116,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
             {/* Bouton Favoris */}
             <button
               onClick={onOpenFavorites}
-              title="Mes arrêts & favoris"
+              title={t.favorites}
               type="button"
               className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-amber-400 hover:text-amber-300 transition-colors"
             >
@@ -124,7 +126,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
             {/* Test rapide du son */}
             <button
               onClick={handleTestSound}
-              title="Tester le son du réveil"
+              title={t.testAlarm}
               type="button"
               className={`p-1.5 rounded-xl border text-xs flex items-center gap-1 transition-all ${
                 soundTested
@@ -140,7 +142,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
               onClick={() => setShowSettings(!showSettings)}
               type="button"
               className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-slate-300 hover:text-white transition-colors"
-              title="Ajuster le rayon"
+              title={t.adjustRadius}
             >
               <Sliders className="w-3.5 h-3.5" />
             </button>
@@ -154,6 +156,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
               radius={radius}
               onChangeRadius={onChangeRadius}
               disabled={isTracking}
+              t={t}
             />
           </div>
         )}
@@ -166,9 +169,9 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
               <div className="bg-slate-950/50 rounded-2xl p-2.5 border border-slate-800/80">
                 <div className="text-[10px] font-medium text-slate-400 flex items-center justify-center gap-1">
                   <Navigation className="w-3 h-3 text-rose-400" />
-                  <span>Distance</span>
+                  <span>{t.distanceLabel}</span>
                 </div>
-                <div className="mt-1 font-mono font-extrabold text-xl sm:text-2xl text-white tabular-nums">
+                <div className="mt-1 font-mono font-extrabold text-xl sm:text-2xl text-white tabular-nums metric-val">
                   {formattedDist.value}
                   <span className="text-xs font-semibold text-slate-400 ml-1">
                     {formattedDist.unit}
@@ -180,9 +183,9 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
               <div className="bg-slate-950/50 rounded-2xl p-2.5 border border-slate-800/80">
                 <div className="text-[10px] font-medium text-slate-400 flex items-center justify-center gap-1">
                   <Gauge className="w-3 h-3 text-blue-400" />
-                  <span>Vitesse</span>
+                  <span>{t.speedLabel}</span>
                 </div>
-                <div className="mt-1 font-mono font-bold text-base sm:text-lg text-slate-200 tabular-nums">
+                <div className="mt-1 font-mono font-bold text-base sm:text-lg text-slate-200 tabular-nums metric-val">
                   {speedText}
                 </div>
               </div>
@@ -191,16 +194,16 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
               <div className="bg-slate-950/50 rounded-2xl p-2.5 border border-slate-800/80">
                 <div className="text-[10px] font-medium text-slate-400 flex items-center justify-center gap-1">
                   <Clock className="w-3 h-3 text-amber-400" />
-                  <span>Arrivée</span>
+                  <span>{t.etaLabel}</span>
                 </div>
-                <div className="mt-1 font-mono font-bold text-base sm:text-lg text-amber-300 tabular-nums">
+                <div className="mt-1 font-mono font-bold text-base sm:text-lg text-amber-300 tabular-nums metric-val">
                   {etaText}
                 </div>
               </div>
             </div>
           ) : (
             <div className="py-3 px-4 text-center bg-slate-950/40 rounded-2xl border border-dashed border-slate-800 text-xs text-slate-400">
-              Touchez la carte ou cherchez une adresse pour définir votre arrêt d'arrivée
+              {t.tapMapOrSearchHint}
             </div>
           )}
         </div>
@@ -215,7 +218,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
               className="w-full py-3.5 px-5 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-sm sm:text-base shadow-xl shadow-amber-500/10 flex items-center justify-center gap-2 transition-all"
             >
               <Play className="w-4 h-4 fill-slate-950" />
-              <span>Démarrer le suivi du trajet</span>
+              <span>{t.startTracking}</span>
             </button>
           ) : (
             <div className="flex items-center gap-2">
@@ -225,7 +228,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
                 className="flex-1 py-3.5 px-4 rounded-2xl bg-rose-600/90 hover:bg-rose-500 active:scale-[0.98] text-white font-bold text-sm sm:text-base shadow-lg shadow-rose-950/30 flex items-center justify-center gap-2 transition-all"
               >
                 <Square className="w-4 h-4 fill-white" />
-                <span>Arrêter le suivi</span>
+                <span>{t.stopTracking}</span>
               </button>
 
               {/* Si en mode simulation, bouton pour avancer d'un pas vers l'arrivée */}
@@ -233,11 +236,11 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
                 <button
                   onClick={onSimulateStep}
                   type="button"
-                  title="Rapprocher la position de l'arrivée (Test)"
+                  title={t.stepForward}
                   className="py-3.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-semibold text-xs border border-slate-700 flex items-center gap-1.5 transition-all"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Avancer (Test)</span>
+                  <span>{t.stepForward}</span>
                 </button>
               )}
             </div>
@@ -250,12 +253,12 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
               onClick={onToggleSimulation}
               className="hover:text-slate-200 transition-colors flex items-center gap-1 underline underline-offset-2 decoration-slate-700"
             >
-              {isSimulating ? 'Désactiver le simulateur' : 'Simuler un trajet (démo)'}
+              {isSimulating ? t.disableSimulation : t.simulateTrip}
             </button>
 
             <span className="flex items-center gap-1 text-slate-400">
               <Smartphone className="w-3 h-3 text-emerald-400" />
-              <span>Écran maintenu allumé</span>
+              <span>{t.screenKeptAwake}</span>
             </span>
           </div>
         </div>

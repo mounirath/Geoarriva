@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Coordinates } from '../utils/geo';
 import { Navigation, Locate, Eye, Map as MapIcon, Layers } from 'lucide-react';
+import { Translations } from '../utils/i18n';
 
 interface MapComponentProps {
   userLocation: Coordinates | null;
@@ -12,6 +13,7 @@ interface MapComponentProps {
   alertRadius: number; // in meters
   isTracking: boolean;
   distanceToDestination: number | null;
+  t: Translations;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
@@ -23,6 +25,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   alertRadius,
   isTracking,
   distanceToDestination,
+  t,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -302,7 +305,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[400] pointer-events-none transition-all">
           <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-4 py-2 rounded-full shadow-xl flex items-center gap-2 text-xs font-medium text-slate-200">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-            <span>Touchez la carte pour placer votre destination</span>
+            <span>{t.tapMapToSetDest}</span>
           </div>
         </div>
       )}
@@ -313,7 +316,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         <button
           onClick={handleRecenterUser}
           disabled={!userLocation}
-          title="Me localiser"
+          title={t.locateMe}
           className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
         >
           <Locate className="w-5 h-5 text-blue-400" />
@@ -323,7 +326,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         {destination && (
           <button
             onClick={handleRecenterDestination}
-            title="Aller à la destination"
+            title={t.goToDest}
             className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800"
           >
             <Navigation className="w-5 h-5 text-rose-400" />
@@ -334,7 +337,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         {userLocation && destination && (
           <button
             onClick={handleFitBounds}
-            title="Ajuster la vue du trajet"
+            title={t.fitView}
             className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800"
           >
             <Eye className="w-5 h-5 text-amber-400" />
@@ -344,7 +347,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         {/* Bascule style de carte */}
         <button
           onClick={() => setMapStyle((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-          title="Changer le style de carte"
+          title={t.changeMapStyle}
           className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800 text-xs"
         >
           <Layers className="w-5 h-5 text-slate-300" />

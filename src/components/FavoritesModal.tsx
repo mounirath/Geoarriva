@@ -5,11 +5,9 @@ import {
   MapPin,
   Trash2,
   Plus,
-  Navigation,
-  Compass,
-  Check,
 } from 'lucide-react';
 import { Coordinates } from '../utils/geo';
+import { Translations } from '../utils/i18n';
 
 export interface FavoriteLocation {
   id: string;
@@ -18,33 +16,6 @@ export interface FavoriteLocation {
   lng: number;
   icon?: string;
 }
-
-const DEFAULT_FAVORITES: FavoriteLocation[] = [
-  {
-    id: 'fav-1',
-    name: 'Gare de Lyon, Paris',
-    lat: 48.8443,
-    lng: 2.3744,
-  },
-  {
-    id: 'fav-2',
-    name: 'Gare Montparnasse, Paris',
-    lat: 48.8412,
-    lng: 2.3205,
-  },
-  {
-    id: 'fav-3',
-    name: 'Aéroport Paris-Charles de Gaulle',
-    lat: 49.0097,
-    lng: 2.5479,
-  },
-  {
-    id: 'fav-4',
-    name: 'La Défense - Grande Arche',
-    lat: 48.8924,
-    lng: 2.2361,
-  },
-];
 
 interface FavoritesModalProps {
   isOpen: boolean;
@@ -55,6 +26,7 @@ interface FavoritesModalProps {
   onDeleteFavorite: (id: string) => void;
   currentDestination: Coordinates | null;
   currentDestinationName: string | null;
+  t: Translations;
 }
 
 export const FavoritesModal: React.FC<FavoritesModalProps> = ({
@@ -66,6 +38,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   onDeleteFavorite,
   currentDestination,
   currentDestinationName,
+  t,
 }) => {
   const [newFavName, setNewFavName] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -74,7 +47,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
   const handleSaveCurrent = () => {
     if (!currentDestination) return;
-    const name = newFavName.trim() || currentDestinationName || 'Mon arrêt favori';
+    const name = newFavName.trim() || currentDestinationName || t.selectedPoint;
     onAddFavorite(name, currentDestination);
     setNewFavName('');
     setIsAdding(false);
@@ -91,10 +64,10 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white">
-                Arrêts & Trajets favoris
+                {t.favModalTitle}
               </h3>
               <p className="text-xs text-slate-400">
-                Accès direct à vos destinations habituelles
+                {t.favModalSubtitle}
               </p>
             </div>
           </div>
@@ -114,10 +87,10 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
               <div className="flex items-center justify-between">
                 <div className="min-w-0 pr-2">
                   <div className="text-[11px] font-semibold text-amber-400">
-                    Destination sur la carte
+                    {t.destOnMapLabel}
                   </div>
                   <div className="text-xs text-slate-200 truncate mt-0.5">
-                    {currentDestinationName || 'Point sélectionné'}
+                    {currentDestinationName || t.selectedPoint}
                   </div>
                 </div>
                 <button
@@ -128,7 +101,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   className="px-3 py-1.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs flex items-center gap-1 shrink-0 hover:bg-amber-400 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Enregistrer</span>
+                  <span>{t.saveCurrentDest}</span>
                 </button>
               </div>
             ) : (
@@ -137,7 +110,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                   type="text"
                   value={newFavName}
                   onChange={(e) => setNewFavName(e.target.value)}
-                  placeholder="Nom du favori (ex: Domicile, Gare...)"
+                  placeholder={t.favNamePlaceholder}
                   className="w-full py-1.5 px-3 bg-slate-900 border border-amber-500/60 rounded-xl text-xs text-white focus:outline-none"
                   autoFocus
                 />
@@ -146,13 +119,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                     onClick={() => setIsAdding(false)}
                     className="text-xs text-slate-400 px-2 py-1"
                   >
-                    Annuler
+                    {t.cancel}
                   </button>
                   <button
                     onClick={handleSaveCurrent}
                     className="px-3 py-1 bg-amber-500 text-slate-950 font-bold text-xs rounded-lg"
                   >
-                    Confirmer
+                    {t.confirm}
                   </button>
                 </div>
               </div>
@@ -164,7 +137,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
         <div className="py-2 space-y-2 max-h-72 overflow-y-auto pr-1">
           {favorites.length === 0 ? (
             <div className="text-center py-6 text-xs text-slate-400">
-              Aucun arrêt favori enregistré. Sélectionnez un point sur la carte pour l'ajouter.
+              {t.noFavsSaved}
             </div>
           ) : (
             favorites.map((fav) => (
@@ -197,7 +170,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                       onDeleteFavorite(fav.id);
                     }}
                     className="w-7 h-7 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 flex items-center justify-center transition-colors"
-                    title="Supprimer ce favori"
+                    title="Supprimer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
