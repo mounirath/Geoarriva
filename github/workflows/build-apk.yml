@@ -1,4 +1,4 @@
-name: Build APK Without Capacitor
+name: Build APK With Cordova
 
 on:
   push:
