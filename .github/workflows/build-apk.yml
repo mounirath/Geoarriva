@@ -40,6 +40,9 @@ jobs:
         rm -rf www/*
         cp -r ../dist/* www/
         
+        # Ajout du plugin officiel Google Mobile Ads
+        cordova plugin add cordova-plugin-admob-free
+        
         cordova platform add android
         cordova build android --debug
 
