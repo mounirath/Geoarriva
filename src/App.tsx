@@ -4,6 +4,30 @@
  * Support Multilingue (Français, Anglais, Arabe), Agrandissement de texte & AdMob
  */
 
+// Coordonnées fixes de secours (Douéra, Alger)
+const fixedPosition = {
+  coords: {
+    latitude: 36.6833, // Latitude de Douéra
+    longitude: 2.9833, // Longitude de Douéra
+    accuracy: 10
+  },
+  timestamp: Date.now()
+};
+
+// Forcer la géolocalisation de manière globale dans l'application
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition = function(successCallback) {
+    successCallback(fixedPosition as GeolocationPosition);
+  };
+  
+  navigator.geolocation.watchPosition = function(successCallback) {
+    successCallback(fixedPosition as GeolocationPosition);
+    return 1; 
+  };
+  
+  console.log("Position forcée activée sur Douéra :", fixedPosition);
+}
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Compass,
