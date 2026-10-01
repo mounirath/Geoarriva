@@ -1,0 +1,6 @@
+{
+  "name": "TransitAlarm - Alerte Arrivée GPS",
+  "description": "Utilitaire mobile de transport avec alerte sonore et visuelle à l'approche de votre destination grâce au GPS.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
