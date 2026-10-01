@@ -1,6 +1,6 @@
 /**
  * TransitAlarm - Application d'alerte et réveil GPS pour les transports
- * 100% Front-end (React, Vite, Leaflet, Tailwind CSS)
+ * Support Google Maps Platform (@vis.gl/react-google-maps) & OpenStreetMap
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -11,15 +11,22 @@ import {
   Music,
   Star,
   Sparkles,
+  Map as MapIcon,
 } from 'lucide-react';
+import { APIProvider } from '@vis.gl/react-google-maps';
 import { Coordinates, calculateHaversineDistance, formatDistance } from './utils/geo';
 import { alertSystem, SoundType, SOUND_OPTIONS } from './utils/audioAlert';
-import { MapComponent } from './components/MapComponent';
+import { GoogleMapComponent } from './components/GoogleMapComponent';
+import { MapComponent as LeafletMapComponent } from './components/MapComponent';
 import { SearchBar } from './components/SearchBar';
 import { TrackingHUD } from './components/TrackingHUD';
 import { AlertModal } from './components/AlertModal';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
 import { FavoritesModal, FavoriteLocation } from './components/FavoritesModal';
+
+const GOOGLE_MAPS_API_KEY =
+  (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) ||
+  'AIzaSyCq2wtmRNcXOYuV0sFCtn0SavzvLi4nlAU';
 
 const INITIAL_FAVORITES: FavoriteLocation[] = [
   { id: '1', name: 'Gare de Lyon, Paris', lat: 48.8443, lng: 2.3744 },
@@ -30,6 +37,10 @@ const INITIAL_FAVORITES: FavoriteLocation[] = [
 ];
 
 export default function App() {
+  // Moteur de carte : 'google' par défaut suite à la demande utilisateur
+  const [mapEngine, setMapEngine] = useState<'google' | 'leaflet'>('google');
+  const [quotaExceeded, setQuotaExceeded] = useState<boolean>(false);
+
   // États de localisation
   const [userLocation, setUserLocation] = useState<Coordinates | null>(null);
   const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
@@ -66,6 +77,17 @@ export default function App() {
   // Références d'observation de géolocalisation
   const watchIdRef = useRef<number | null>(null);
 
+  // Détection du quota Google Maps Platform
+  useEffect(() => {
+    const handleQuotaExceeded = () => {
+      setQuotaExceeded(true);
+    };
+    window.addEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+    return () => {
+      window.removeEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+    };
+  }, []);
+
   // Sauvegarde des favoris dans localStorage
   useEffect(() => {
     try {
@@ -93,7 +115,6 @@ export default function App() {
         },
         (error) => {
           console.warn('Erreur géolocalisation initiale:', error.message);
-          // Position de repli par défaut (Paris - Châtelet les Halles)
           const fallbackCoords: Coordinates = { lat: 48.8606, lng: 2.3472 };
           setUserLocation(fallbackCoords);
           setUserAccuracy(25);
@@ -124,7 +145,6 @@ export default function App() {
       return;
     }
 
-    // Si on entre dans le rayon d'alerte configuré
     if (distanceToDestination <= alertRadius) {
       if (!isAlarmActive) {
         setIsAlarmActive(true);
@@ -136,20 +156,16 @@ export default function App() {
   const handleStartTracking = useCallback(async () => {
     if (!destination) return;
 
-    // Déverrouiller le contexte audio sur interaction utilisateur
     alertSystem.ensureAudioContext();
-    // Demander le maintien d'écran éveillé
     await alertSystem.requestWakeLock();
 
     setIsTracking(true);
 
     if (isSimulating) {
-      // Démarrage de la simulation automatique progressive
       if (simulationIntervalRef.current) clearInterval(simulationIntervalRef.current);
       simulationIntervalRef.current = window.setInterval(() => {
         setUserLocation((current) => {
           if (!current || !destination) return current;
-          // Avancer de 15% vers la destination
           const newLat = current.lat + (destination.lat - current.lat) * 0.12;
           const newLng = current.lng + (destination.lng - current.lng) * 0.12;
           return { lat: newLat, lng: newLng };
@@ -159,7 +175,6 @@ export default function App() {
       return;
     }
 
-    // Suivi GPS natif continu
     if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
       const id = navigator.geolocation.watchPosition(
         (position) => {
@@ -205,14 +220,14 @@ export default function App() {
     setCurrentSpeed(null);
   }, []);
 
-  // Définir la destination depuis un clic carte
+  // Définir la destination depuis la carte
   const handleSelectDestinationFromMap = (coords: Coordinates) => {
     if (isTracking) return;
     setDestination(coords);
     setDestinationAddress(`Point d'arrivée (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
   };
 
-  // Définir la destination depuis la barre de recherche ou un favori
+  // Définir la destination depuis la recherche ou un favori
   const handleSelectLocation = (coords: Coordinates, label: string) => {
     if (isTracking) return;
     setDestination(coords);
@@ -250,8 +265,8 @@ export default function App() {
     setIsSimulating(nextState);
 
     if (nextState) {
-      const start: Coordinates = { lat: 48.8566, lng: 2.3522 }; // Paris Hôtel de Ville
-      const dest: Coordinates = { lat: 48.8738, lng: 2.2950 }; // Arc de Triomphe (~4.2 km)
+      const start: Coordinates = { lat: 48.8566, lng: 2.3522 };
+      const dest: Coordinates = { lat: 48.8738, lng: 2.2950 };
       setUserLocation(start);
       setDestination(dest);
       setDestinationAddress('Arc de Triomphe (Démo Simulation)');
@@ -268,7 +283,6 @@ export default function App() {
     setCurrentSpeed(13.8); // 50 km/h
   };
 
-  // Nom du son sélectionné pour l'affichage
   const currentSoundName =
     SOUND_OPTIONS.find((s) => s.id === selectedSound)?.name || 'Carillon';
 
@@ -287,142 +301,192 @@ export default function App() {
   }, []);
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-slate-950 flex flex-col font-sans select-none">
-      {/* Top Bar contractuelle épurée (1 row, 3 zones) */}
-      <header className="absolute top-0 left-0 right-0 z-[500] h-14 px-4 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between pointer-events-auto">
-        {/* Zone 1: Marque */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center shadow-md shadow-amber-500/20 text-slate-950 font-black">
-            <Compass className="w-5 h-5 text-slate-950" />
-          </div>
-          <span className="text-base font-bold tracking-tight text-white">
-            TransitAlarm
-          </span>
-        </div>
-
-        {/* Zone 2: Navigation rapide vers Sons & Favoris */}
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={() => setIsSoundModalOpen(true)}
-            type="button"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700/60 transition-colors"
-          >
-            <Music className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Sonneries</span>
-          </button>
-
-          <button
-            onClick={() => setIsFavoritesModalOpen(true)}
-            type="button"
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700/60 transition-colors"
-          >
-            <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
-            <span className="hidden sm:inline">Favoris</span>
-          </button>
-        </div>
-
-        {/* Zone 3: Action rapide / réinitialisation */}
-        <div className="flex items-center gap-2">
-          {destination && !isTracking && (
-            <button
-              onClick={handleClearDestination}
-              type="button"
-              className="text-xs font-medium text-slate-400 hover:text-slate-200 px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors"
-            >
-              Effacer
-            </button>
-          )}
-
-          {isSimulating && (
-            <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
-              Démo
+    <APIProvider apiKey={GOOGLE_MAPS_API_KEY} language="fr">
+      <div className="relative w-screen h-screen overflow-hidden bg-slate-950 flex flex-col font-sans select-none">
+        {/* Bannière de quota Google Maps Platform si dépassé */}
+        {quotaExceeded && (
+          <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+            <span>
+              Google Maps Platform quota reached. If you are the app owner, visit{' '}
+              <a
+                href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-semibold text-amber-950 hover:text-amber-800"
+              >
+                maps developer site
+              </a>{' '}
+              for instructions to update your account.
             </span>
-          )}
-        </div>
-      </header>
+          </div>
+        )}
 
-      {/* Barre de recherche d'adresse / arrêts */}
-      <div className="absolute top-14 left-0 right-0 z-[500] pointer-events-auto">
-        <SearchBar
-          onSelectLocation={handleSelectLocation}
+        {/* Top Bar épurée (1 row, 3 zones) */}
+        <header className="absolute top-0 left-0 right-0 z-[500] h-14 px-4 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between pointer-events-auto">
+          {/* Zone 1: Marque */}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center shadow-md shadow-amber-500/20 text-slate-950 font-black">
+              <Compass className="w-5 h-5 text-slate-950" />
+            </div>
+            <span className="text-base font-bold tracking-tight text-white">
+              TransitAlarm
+            </span>
+          </div>
+
+          {/* Zone 2: Navigation rapide vers Sons & Favoris & Moteur de carte */}
+          <div className="flex items-center gap-1.5">
+            {/* Bascule moteur Google Maps / OSM */}
+            <button
+              onClick={() =>
+                setMapEngine((prev) => (prev === 'google' ? 'leaflet' : 'google'))
+              }
+              type="button"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-medium border transition-colors ${
+                mapEngine === 'google'
+                  ? 'bg-blue-600/30 text-blue-300 border-blue-500/50'
+                  : 'bg-slate-800/70 text-slate-300 border-slate-700/60'
+              }`}
+              title="Changer de moteur cartographique"
+            >
+              <MapIcon className="w-3.5 h-3.5 text-blue-400" />
+              <span>{mapEngine === 'google' ? 'Google Maps' : 'OSM'}</span>
+            </button>
+
+            <button
+              onClick={() => setIsSoundModalOpen(true)}
+              type="button"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700/60 transition-colors"
+            >
+              <Music className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Sonneries</span>
+            </button>
+
+            <button
+              onClick={() => setIsFavoritesModalOpen(true)}
+              type="button"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700/60 transition-colors"
+            >
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
+              <span className="hidden sm:inline">Favoris</span>
+            </button>
+          </div>
+
+          {/* Zone 3: Action rapide / réinitialisation */}
+          <div className="flex items-center gap-2">
+            {destination && !isTracking && (
+              <button
+                onClick={handleClearDestination}
+                type="button"
+                className="text-xs font-medium text-slate-400 hover:text-slate-200 px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors"
+              >
+                Effacer
+              </button>
+            )}
+
+            {isSimulating && (
+              <span className="text-[11px] font-semibold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
+                Démo
+              </span>
+            )}
+          </div>
+        </header>
+
+        {/* Barre de recherche d'adresse / arrêts */}
+        <div className="absolute top-14 left-0 right-0 z-[500] pointer-events-auto">
+          <SearchBar
+            onSelectLocation={handleSelectLocation}
+            destinationAddress={destinationAddress}
+            onClearDestination={handleClearDestination}
+          />
+        </div>
+
+        {/* Notification discrète d'erreur GPS s'il y a lieu */}
+        {geoError && (
+          <div className="absolute top-28 left-4 right-4 z-[450] max-w-md mx-auto pointer-events-none">
+            <div className="bg-amber-500/10 border border-amber-500/30 backdrop-blur-md rounded-2xl p-2.5 flex items-center gap-2.5 text-xs text-amber-200 shadow-lg pointer-events-auto">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="flex-1 text-[11px] leading-tight">{geoError}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Carte interactive pleine page (Google Maps ou Leaflet) */}
+        <main className="flex-1 w-full h-full relative">
+          {mapEngine === 'google' ? (
+            <GoogleMapComponent
+              userLocation={userLocation}
+              userAccuracy={userAccuracy}
+              destination={destination}
+              destinationAddress={destinationAddress}
+              onSelectDestination={handleSelectDestinationFromMap}
+              alertRadius={alertRadius}
+              isTracking={isTracking}
+              distanceToDestination={distanceToDestination}
+            />
+          ) : (
+            <LeafletMapComponent
+              userLocation={userLocation}
+              userAccuracy={userAccuracy}
+              destination={destination}
+              destinationAddress={destinationAddress}
+              onSelectDestination={handleSelectDestinationFromMap}
+              alertRadius={alertRadius}
+              isTracking={isTracking}
+              distanceToDestination={distanceToDestination}
+            />
+          )}
+        </main>
+
+        {/* Panneau de contrôle bas (HUD Ergonomique pouce mobile) */}
+        <TrackingHUD
+          isTracking={isTracking}
+          distance={distanceToDestination}
+          radius={alertRadius}
+          currentSpeed={currentSpeed}
+          destinationSet={destination !== null}
           destinationAddress={destinationAddress}
-          onClearDestination={handleClearDestination}
+          onStartTracking={handleStartTracking}
+          onStopTracking={handleStopTracking}
+          onChangeRadius={setAlertRadius}
+          isSimulating={isSimulating}
+          onToggleSimulation={handleToggleSimulation}
+          onSimulateStep={handleSimulateStep}
+          onOpenSoundSettings={() => setIsSoundModalOpen(true)}
+          selectedSoundName={currentSoundName}
+          onOpenFavorites={() => setIsFavoritesModalOpen(true)}
+        />
+
+        {/* Modal / Bannière d'alerte urgente au franchissement du rayon */}
+        <AlertModal
+          isOpen={isAlarmActive}
+          distance={distanceToDestination}
+          radius={alertRadius}
+          destinationAddress={destinationAddress}
+          onDismiss={handleStopTracking}
+        />
+
+        {/* Modal des réglages de sonneries */}
+        <SoundSettingsModal
+          isOpen={isSoundModalOpen}
+          onClose={() => setIsSoundModalOpen(false)}
+          selectedSound={selectedSound}
+          onSelectSound={setSelectedSound}
+          volume={volume}
+          onChangeVolume={setVolume}
+        />
+
+        {/* Modal des arrêts et trajets favoris */}
+        <FavoritesModal
+          isOpen={isFavoritesModalOpen}
+          onClose={() => setIsFavoritesModalOpen(false)}
+          favorites={favorites}
+          onSelectFavorite={handleSelectLocation}
+          onAddFavorite={handleAddFavorite}
+          onDeleteFavorite={handleDeleteFavorite}
+          currentDestination={destination}
+          currentDestinationName={destinationAddress}
         />
       </div>
-
-      {/* Notification discrète d'erreur GPS s'il y a lieu */}
-      {geoError && (
-        <div className="absolute top-28 left-4 right-4 z-[450] max-w-md mx-auto pointer-events-none">
-          <div className="bg-amber-500/10 border border-amber-500/30 backdrop-blur-md rounded-2xl p-2.5 flex items-center gap-2.5 text-xs text-amber-200 shadow-lg pointer-events-auto">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span className="flex-1 text-[11px] leading-tight">{geoError}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Carte interactive Leaflet pleine page */}
-      <main className="flex-1 w-full h-full relative">
-        <MapComponent
-          userLocation={userLocation}
-          userAccuracy={userAccuracy}
-          destination={destination}
-          destinationAddress={destinationAddress}
-          onSelectDestination={handleSelectDestinationFromMap}
-          alertRadius={alertRadius}
-          isTracking={isTracking}
-          distanceToDestination={distanceToDestination}
-        />
-      </main>
-
-      {/* Panneau de contrôle bas (HUD Ergonomique pouce mobile) */}
-      <TrackingHUD
-        isTracking={isTracking}
-        distance={distanceToDestination}
-        radius={alertRadius}
-        currentSpeed={currentSpeed}
-        destinationSet={destination !== null}
-        destinationAddress={destinationAddress}
-        onStartTracking={handleStartTracking}
-        onStopTracking={handleStopTracking}
-        onChangeRadius={setAlertRadius}
-        isSimulating={isSimulating}
-        onToggleSimulation={handleToggleSimulation}
-        onSimulateStep={handleSimulateStep}
-        onOpenSoundSettings={() => setIsSoundModalOpen(true)}
-        selectedSoundName={currentSoundName}
-        onOpenFavorites={() => setIsFavoritesModalOpen(true)}
-      />
-
-      {/* Modal / Bannière d'alerte urgente au franchissement du rayon */}
-      <AlertModal
-        isOpen={isAlarmActive}
-        distance={distanceToDestination}
-        radius={alertRadius}
-        destinationAddress={destinationAddress}
-        onDismiss={handleStopTracking}
-      />
-
-      {/* Modal des réglages de sonneries */}
-      <SoundSettingsModal
-        isOpen={isSoundModalOpen}
-        onClose={() => setIsSoundModalOpen(false)}
-        selectedSound={selectedSound}
-        onSelectSound={setSelectedSound}
-        volume={volume}
-        onChangeVolume={setVolume}
-      />
-
-      {/* Modal des arrêts et trajets favoris */}
-      <FavoritesModal
-        isOpen={isFavoritesModalOpen}
-        onClose={() => setIsFavoritesModalOpen(false)}
-        favorites={favorites}
-        onSelectFavorite={handleSelectLocation}
-        onAddFavorite={handleAddFavorite}
-        onDeleteFavorite={handleDeleteFavorite}
-        currentDestination={destination}
-        currentDestinationName={destinationAddress}
-      />
-    </div>
+    </APIProvider>
   );
 }
