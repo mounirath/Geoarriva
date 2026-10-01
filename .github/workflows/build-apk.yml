@@ -1,1 +1,54 @@
+name: Build APK With Cordova
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Install Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+
+    - name: Install dependencies with Bun
+      run: bun install
+
+    - name: Build Web Project (Vite)
+      run: bun run build
+
+    - name: Install Cordova CLI
+      run: npm install -g cordova
+
+    - name: Generate Android APK with Cordova
+      run: |
+        cordova create temp-app com.geoarriva.app Geoarriva
+        cd temp-app
+        
+        rm -rf www/*
+        cp -r ../dist/* www/
+        
+        # Ajout du plugin officiel Google Mobile Ads
+        cordova plugin add cordova-plugin-admob-free
+        
+        cordova platform add android
+        cordova build android --debug
+
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: geoarriva-debug-apk
+        path: temp-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
 
