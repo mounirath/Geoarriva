@@ -40,8 +40,8 @@ jobs:
         rm -rf www/*
         cp -r ../dist/* www/
         
-        # Ajout du plugin officiel Google Mobile Ads
-        cordova plugin add cordova-plugin-admob-free
+        # Installation du plugin en fournissant l'ID d'application requis
+        cordova plugin add cordova-plugin-admob-free --variable ADMOB_APP_ID="ca-app-pub-1050422776945344~6655047295"
         
         cordova platform add android
         cordova build android --debug
@@ -51,4 +51,3 @@ jobs:
       with:
         name: geoarriva-debug-apk
         path: temp-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
-
