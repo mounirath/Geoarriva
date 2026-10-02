@@ -29,30 +29,26 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          node-version: 20
-          cache: 'npm'
+          bun-version: latest
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies with Bun
+        run: bun install
 
       - name: Build Web Application (Vite)
         env:
           VITE_ADMOB_CLIENT_ID: "ca-app-pub-1050422776945344~6855047295"
           VITE_ADMOB_SLOT_ID: "ca-app-pub-1050422776945344/8752251197"
-        run: npm run build
+        run: bun run build
 
       - name: Install Cordova CLI
         run: npm install -g cordova
 
       - name: Build Android APK with Cordova
         run: |
-          cordova create temp-app com.arreva.app "arreva"
+          cordova create temp-app com.geoarriva.app Geoarriva
           cd temp-app
           
           rm -rf www/*
@@ -62,32 +58,23 @@ jobs:
           cordova plugin add cordova-plugin-admob-free --variable ADMOB_APP_ID="ca-app-pub-1050422776945344~6855047295"
           cordova plugin add cordova-plugin-androidx-adapter
           cordova plugin add cordova-plugin-geolocation
-          cordova plugin add cordova-plugin-android-permissions
-          
-          yes | sdkmanager --licenses || true
           
           cordova platform add android
-
-          MANIFEST="platforms/android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ]; then
-            sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" android:required="true" />' "$MANIFEST"
-          fi
-
           cordova build android --debug
           
           mkdir -p ../release-output
-          cp platforms/android/app/build/outputs/apk/debug/app-debug.apk ../release-output/arreva-${{ github.event.inputs.version_tag || github.ref_name }}.apk
+          cp platforms/android/app/build/outputs/apk/debug/app-debug.apk ../release-output/geoarriva-${{ github.event.inputs.version_tag || github.ref_name }}.apk
 
       - name: Create GitHub Release and Upload APK
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.version_tag || github.ref_name }}
-          name: "arreva ${{ github.event.inputs.version_tag || github.ref_name }}"
+          name: "Geoarriva ${{ github.event.inputs.version_tag || github.ref_name }}"
           body: |
-            ### 📱 Application mobile Android arreva
-            - **Alerte GPS d'arrivée** pour les transports en commun (train, bus, métro, RER, TGV).
+            ### 📱 Application mobile Android Geoarriva
+            - **Alerte GPS d'arrivée** pour les transports en commun.
             - **Intégration Google AdMob** (App Open Ad).
-            - Support multilingue (Français, Anglais, Arabe) & agrandissement de texte.
+            - Support des autorisations GPS natives Android.
             
             Téléchargez le fichier `.apk` ci-dessous et installez-le sur votre smartphone Android.
           files: release-output/*.apk

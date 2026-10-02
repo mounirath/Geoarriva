@@ -3,21 +3,10 @@ name: Build Android APK (Cordova)
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
-    inputs:
-      build_type:
-        description: 'Type de build (debug ou release)'
-        required: true
-        default: 'debug'
-        type: choice
-        options:
-          - debug
-          - release
 
 jobs:
-  build-apk:
+  build:
     name: Build Android APK
     runs-on: ubuntu-latest
 
@@ -31,79 +20,44 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v1
         with:
-          node-version: 20
-          cache: 'npm'
+          bun-version: latest
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Install dependencies with Bun
+        run: bun install
 
-      - name: Build Web Application (Vite)
+      - name: Build Web Project (Vite)
         env:
           VITE_ADMOB_CLIENT_ID: "ca-app-pub-1050422776945344~6855047295"
           VITE_ADMOB_SLOT_ID: "ca-app-pub-1050422776945344/8752251197"
-        run: npm run build
+        run: bun run build
 
       - name: Install Cordova CLI
         run: npm install -g cordova
 
-      - name: Create Cordova Project & Configure Android
+      - name: Generate Android APK with Cordova
         run: |
-          # Création du projet Cordova propre
-          cordova create temp-app com.arreva.app "arreva"
+          cordova create temp-app com.geoarriva.app Geoarriva
           cd temp-app
           
-          # Nettoyage et copie des fichiers de production web
           rm -rf www/*
           cp -r ../dist/* www/
           
-          # Ajout des plugins nécessaires
+          # Plugin AdMob officiel configuré avec votre ID
           cordova plugin add cordova-plugin-admob-free --variable ADMOB_APP_ID="ca-app-pub-1050422776945344~6855047295"
           cordova plugin add cordova-plugin-androidx-adapter
+          
+          # Plugin Geolocation officiel pour activer l'accès GPS natif dans AndroidManifest
           cordova plugin add cordova-plugin-geolocation
-          cordova plugin add cordova-plugin-android-permissions
           
-          # Acceptation des licences Android SDK
-          yes | sdkmanager --licenses || true
-          
-          # Ajout de la plateforme Android
           cordova platform add android
-
-          # Garantie que les permissions GPS sont inscrites dans le Manifest Android
-          MANIFEST="platforms/android/app/src/main/AndroidManifest.xml"
-          if [ -f "$MANIFEST" ]; then
-            sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" android:required="true" />' "$MANIFEST"
-          fi
-          
-          # Compilation de l'APK
-          if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
-            cordova build android --release
-          else
-            cordova build android --debug
-          fi
-
-      - name: Find and Prepare APK Output
-        id: find_apk
-        run: |
-          mkdir -p output-apk
-          APK_FILE=$(find temp-app/platforms/android/app/build/outputs/apk/ -name "*.apk" | head -n 1)
-          if [ -f "$APK_FILE" ]; then
-            cp "$APK_FILE" output-apk/arreva-app.apk
-            echo "apk_path=output-apk/arreva-app.apk" >> $GITHUB_OUTPUT
-            echo "APK found: $APK_FILE"
-          else
-            echo "APK not found!"
-            exit 1
-          fi
+          cordova build android --debug
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: arreva-android-apk
-          path: output-apk/arreva-app.apk
+          name: geoarriva-debug-apk
+          path: temp-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
