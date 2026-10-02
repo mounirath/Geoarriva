@@ -22,6 +22,7 @@ interface GoogleMapComponentProps {
   isTracking: boolean;
   distanceToDestination: number | null;
   t: Translations;
+  onOpenGpsDetails?: () => void;
 }
 
 // Composant Overlay pour le cercle de rayon d'alerte (Geofence)
@@ -149,6 +150,23 @@ const TrajectoryPolyline: React.FC<{
   return null;
 };
 
+// Composant d'auto-centrage sur la position utilisateur dès la première acquisition
+const AutoCenterOnUser: React.FC<{ userLocation: Coordinates | null }> = ({ userLocation }) => {
+  const map = useMap();
+  const hasAutoCenteredRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (!map || !userLocation) return;
+    if (!hasAutoCenteredRef.current) {
+      map.panTo(userLocation);
+      map.setZoom(16);
+      hasAutoCenteredRef.current = true;
+    }
+  }, [map, userLocation]);
+
+  return null;
+};
+
 // Contrôles de caméra personnalisés
 const MapCameraControls: React.FC<{
   userLocation: Coordinates | null;
@@ -156,13 +174,18 @@ const MapCameraControls: React.FC<{
   mapTypeId: string;
   onToggleMapType: () => void;
   t: Translations;
-}> = ({ userLocation, destination, mapTypeId, onToggleMapType, t }) => {
+  onOpenGpsDetails?: () => void;
+}> = ({ userLocation, destination, mapTypeId, onToggleMapType, t, onOpenGpsDetails }) => {
   const map = useMap();
 
   const handleRecenterUser = () => {
-    if (!map || !userLocation) return;
+    if (!map || !userLocation) {
+      onOpenGpsDetails?.();
+      return;
+    }
     map.panTo(userLocation);
     map.setZoom(16);
+    onOpenGpsDetails?.();
   };
 
   const handleRecenterDestination = () => {
@@ -195,17 +218,35 @@ const MapCameraControls: React.FC<{
   };
 
   return (
-    <div className="absolute right-3.5 top-20 z-10 flex flex-col gap-2.5">
-      {/* Recentrer sur ma position */}
-      <button
-        onClick={handleRecenterUser}
-        disabled={!userLocation}
-        type="button"
-        title={t.locateMe}
-        className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
-      >
-        <Locate className="w-5 h-5 text-blue-400" />
-      </button>
+    <>
+      {/* Bouton visible d'accès direct à ma position GPS */}
+      <div className="absolute left-3.5 top-20 z-10">
+        <button
+          onClick={handleRecenterUser}
+          type="button"
+          className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-900/90 text-white backdrop-blur-md border border-blue-500/40 shadow-xl active:scale-95 transition-all hover:bg-slate-800"
+        >
+          <div className="relative flex items-center justify-center w-3 h-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+          </div>
+          <span className="text-xs font-bold text-slate-100">
+            {userLocation ? 'Ma position GPS' : 'Activer mon GPS'}
+          </span>
+        </button>
+      </div>
+
+      <div className="absolute right-3.5 top-20 z-10 flex flex-col gap-2.5">
+        {/* Recentrer sur ma position */}
+        <button
+          onClick={handleRecenterUser}
+          disabled={!userLocation}
+          type="button"
+          title={t.locateMe}
+          className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
+        >
+          <Locate className="w-5 h-5 text-blue-400" />
+        </button>
 
       {/* Recentrer sur destination (si définie) */}
       {destination && (
@@ -241,6 +282,7 @@ const MapCameraControls: React.FC<{
         <Layers className="w-5 h-5 text-slate-300" />
       </button>
     </div>
+  </>
   );
 };
 
@@ -254,6 +296,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   isTracking,
   distanceToDestination,
   t,
+  onOpenGpsDetails,
 }) => {
   const [mapTypeId, setMapTypeId] = useState<string>('roadmap');
 
@@ -344,6 +387,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           />
         )}
 
+        {/* Auto centrage dès la première réception du signal GPS */}
+        <AutoCenterOnUser userLocation={userLocation} />
+
         {/* Boutons de contrôle de la caméra et vue */}
         <MapCameraControls
           userLocation={userLocation}
@@ -353,6 +399,7 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
             setMapTypeId((prev) => (prev === 'roadmap' ? 'hybrid' : 'roadmap'))
           }
           t={t}
+          onOpenGpsDetails={onOpenGpsDetails}
         />
       </Map>
 

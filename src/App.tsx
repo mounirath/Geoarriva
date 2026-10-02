@@ -33,6 +33,7 @@ import { AdBanner } from './components/AdBanner';
 import { AdSettingsModal } from './components/AdSettingsModal';
 import { AppOpenAdModal } from './components/AppOpenAdModal';
 import { LocationPermissionModal } from './components/LocationPermissionModal';
+import { GpsDetailsModal } from './components/GpsDetailsModal';
 import { useLocationManager } from './hooks/useLocationManager';
 import { adMobService, ADMOB_DEFAULTS } from './services/AdMobService';
 import { Language, TextSize, TRANSLATIONS } from './utils/i18n';
@@ -141,12 +142,36 @@ export default function App() {
     }
   });
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState<boolean>(false);
+  const [isGpsDetailsOpen, setIsGpsDetailsOpen] = useState<boolean>(false);
+  const [gpsNotification, setGpsNotification] = useState<{ message: string; type: 'loading' | 'success' } | null>(null);
 
   // Mode simulation pour démonstration et tests
   const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [simulatedLocation, setSimulatedLocation] = useState<Coordinates | null>(null);
   const [simulatedSpeed, setSimulatedSpeed] = useState<number | null>(null);
   const simulationIntervalRef = useRef<number | null>(null);
+
+  // Forcer la demande et le centrage GPS dès le démarrage de l'application
+  useEffect(() => {
+    requestLocation().catch(() => {});
+  }, [requestLocation]);
+
+  // Toast de confirmation dès la détection de la position
+  useEffect(() => {
+    if (userLocation && !isSimulating) {
+      const precision = userAccuracy ? ` (±${Math.round(userAccuracy)}m)` : '';
+      const msg =
+        lang === 'ar'
+          ? `تم تحديد موقعك بدقة${precision}`
+          : lang === 'en'
+          ? `GPS Position Acquired${precision}`
+          : `Position GPS détectée${precision}`;
+
+      setGpsNotification({ message: msg, type: 'success' });
+      const timer = setTimeout(() => setGpsNotification(null), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [userLocation, userAccuracy, lang, isSimulating]);
 
   // Détection du retour en premier plan pour déclencher l'annonce à l'ouverture si cooldown dépassé
   useEffect(() => {
@@ -458,34 +483,34 @@ export default function App() {
               {t.appName}
             </span>
 
-            {/* Pastille d'état GPS natif */}
+            {/* Pastille d'état GPS natif cliquable pour voir les détails */}
             <button
-              onClick={() => requestLocation()}
+              onClick={() => {
+                if (userLocation || isSimulating) {
+                  setIsGpsDetailsOpen(true);
+                } else {
+                  requestLocation().then(() => setIsGpsDetailsOpen(true)).catch(() => {});
+                }
+              }}
               type="button"
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
-                isRealGps
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+              className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+                isRealGps || isSimulating
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
                   : isGpsLoading
                   ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse'
-                  : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                  : 'bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
               }`}
-              title={
-                isRealGps
-                  ? t.locActiveGpsBadge
-                  : isGpsLoading
-                  ? t.locAcquiringPosition
-                  : t.locPermissionDeniedTitle
-              }
+              title="Afficher les détails de ma position GPS"
             >
               {isGpsLoading ? (
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
-              ) : isRealGps ? (
+              ) : isRealGps || isSimulating ? (
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               ) : (
                 <AlertTriangle className="w-2.5 h-2.5" />
               )}
-              <span className="hidden sm:inline">
-                {isRealGps ? 'GPS' : isGpsLoading ? '...' : '! GPS'}
+              <span>
+                {isRealGps || isSimulating ? 'GPS Actif' : isGpsLoading ? '...' : '! GPS'}
               </span>
             </button>
           </div>
@@ -613,6 +638,24 @@ export default function App() {
           />
         </div>
 
+        {/* Toast de confirmation de position GPS au démarrage */}
+        {gpsNotification && (
+          <div className="absolute top-28 left-1/2 -translate-x-1/2 z-[550] pointer-events-none animate-in fade-in slide-in-from-top-3 duration-300">
+            <div className={`px-3.5 py-1.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-semibold backdrop-blur-md border ${
+              gpsNotification.type === 'success'
+                ? 'bg-emerald-950/95 text-emerald-200 border-emerald-500/50'
+                : 'bg-slate-900/95 text-amber-300 border-amber-500/40'
+            }`}>
+              {gpsNotification.type === 'success' ? (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              ) : (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+              )}
+              <span>{gpsNotification.message}</span>
+            </div>
+          </div>
+        )}
+
         {/* Notification discrète d'erreur GPS s'il y a lieu */}
         {gpsError && permissionStatus !== 'denied' && (
           <div className="absolute top-36 left-4 right-4 z-[450] max-w-md mx-auto pointer-events-none">
@@ -646,6 +689,7 @@ export default function App() {
               isTracking={isTracking}
               distanceToDestination={distanceToDestination}
               t={t}
+              onOpenGpsDetails={() => setIsGpsDetailsOpen(true)}
             />
           ) : (
             <LeafletMapComponent
@@ -658,6 +702,7 @@ export default function App() {
               isTracking={isTracking}
               distanceToDestination={distanceToDestination}
               t={t}
+              onOpenGpsDetails={() => setIsGpsDetailsOpen(true)}
             />
           )}
         </main>
@@ -735,6 +780,24 @@ export default function App() {
           error={gpsError}
           hasLocation={userLocation !== null}
           onRequestLocation={() => requestLocation()}
+          t={t}
+          lang={lang}
+        />
+
+        {/* Modal détaillée d'affichage et partage de la position GPS */}
+        <GpsDetailsModal
+          isOpen={isGpsDetailsOpen}
+          onClose={() => setIsGpsDetailsOpen(false)}
+          location={effectiveLocation}
+          accuracy={isSimulating ? 10 : userAccuracy}
+          speed={effectiveSpeed}
+          timestamp={Date.now()}
+          isRealGps={isRealGps || isSimulating}
+          isLoading={isGpsLoading}
+          onRequestLocation={() => requestLocation()}
+          onCenterMap={() => {
+            // Déclenché depuis la modal
+          }}
           t={t}
           lang={lang}
         />

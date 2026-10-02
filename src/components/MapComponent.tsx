@@ -14,6 +14,7 @@ interface MapComponentProps {
   isTracking: boolean;
   distanceToDestination: number | null;
   t: Translations;
+  onOpenGpsDetails?: () => void;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
@@ -26,6 +27,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   isTracking,
   distanceToDestination,
   t,
+  onOpenGpsDetails,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -36,6 +38,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const connectingLineRef = useRef<L.Polyline | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
   const [mapStyle, setMapStyle] = React.useState<'dark' | 'light'>('dark');
+  const hasAutoCenteredRef = useRef<boolean>(false);
 
   // Initialisation de la carte Leaflet
   useEffect(() => {
@@ -263,12 +266,27 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     }
   }, [destination, alertRadius, userLocation, distanceToDestination, onSelectDestination]);
 
+  // Auto-centrage à la première détection de position GPS
+  useEffect(() => {
+    if (!mapInstanceRef.current || !userLocation) return;
+    if (!hasAutoCenteredRef.current) {
+      mapInstanceRef.current.flyTo([userLocation.lat, userLocation.lng], 16, {
+        duration: 1.2,
+      });
+      hasAutoCenteredRef.current = true;
+    }
+  }, [userLocation]);
+
   // Actions d'ajustement de vue
   const handleRecenterUser = () => {
-    if (!mapInstanceRef.current || !userLocation) return;
+    if (!mapInstanceRef.current || !userLocation) {
+      onOpenGpsDetails?.();
+      return;
+    }
     mapInstanceRef.current.flyTo([userLocation.lat, userLocation.lng], 16, {
       duration: 0.8,
     });
+    onOpenGpsDetails?.();
   };
 
   const handleRecenterDestination = () => {
@@ -302,13 +320,30 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 
       {/* Guide visuel d'aide si aucune destination choisie */}
       {!destination && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[400] pointer-events-none transition-all">
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[400] pointer-events-none transition-all hidden sm:block">
           <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-4 py-2 rounded-full shadow-xl flex items-center gap-2 text-xs font-medium text-slate-200">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
             <span>{t.tapMapToSetDest}</span>
           </div>
         </div>
       )}
+
+      {/* Bouton visible d'accès direct à ma position GPS */}
+      <div className="absolute left-3.5 top-20 z-[400]">
+        <button
+          onClick={handleRecenterUser}
+          type="button"
+          className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-900/90 text-white backdrop-blur-md border border-blue-500/40 shadow-xl active:scale-95 transition-all hover:bg-slate-800"
+        >
+          <div className="relative flex items-center justify-center w-3 h-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+          </div>
+          <span className="text-xs font-bold text-slate-100">
+            {userLocation ? 'Ma position GPS' : 'Activer mon GPS'}
+          </span>
+        </button>
+      </div>
 
       {/* Boutons d'actions rapides de carte (ergonomie mobile pouce droit) */}
       <div className="absolute right-3.5 top-20 z-[400] flex flex-col gap-2.5">

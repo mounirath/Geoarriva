@@ -44,8 +44,19 @@ class LocationManagerService {
   private initialized: boolean = false;
 
   constructor() {
-    // Initialisation automatique au chargement
+    // Restauration de la dernière position connue pour affichage instantané au démarrage
     if (typeof window !== 'undefined') {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const cached = localStorage.getItem('arreva_last_location');
+          if (cached) {
+            this.currentLocation = JSON.parse(cached);
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+
       if (typeof document !== 'undefined') {
         document.addEventListener('deviceready', async () => {
           await this.requestCordovaPermissions();
@@ -375,6 +386,13 @@ class LocationManagerService {
   }
 
   private notifyLocation(data: LocationData): void {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('arreva_last_location', JSON.stringify(data));
+      }
+    } catch (e) {
+      // ignore
+    }
     this.locationListeners.forEach((fn) => fn(data));
   }
 }

@@ -34,8 +34,12 @@ export const LocationPermissionModal: React.FC<LocationPermissionModalProps> = (
 }) => {
   const [isDismissedByUser, setIsDismissedByUser] = useState(false);
 
-  // Si la permission est accordée et qu'on a la position réelle, ne pas afficher
-  if (permissionStatus === 'granted' && hasLocation) {
+  // Si l'accès n'est pas explicitement refusé et qu'on est en cours d'acquisition ou qu'on a déjà une position, ne pas bloquer
+  const isDenied = permissionStatus === 'denied' || (error && error.code === 1);
+  const isUnavailable = error && error.code === 2;
+
+  // Si la permission est accordée et qu'on a la position réelle, ou si on est en attente/acquisition sans refus, laisser la carte visible
+  if (!isDenied && (hasLocation || isLoading || permissionStatus === 'prompt' || permissionStatus === 'granted')) {
     return null;
   }
 
@@ -74,9 +78,6 @@ export const LocationPermissionModal: React.FC<LocationPermissionModalProps> = (
   if (hasLocation && !error) {
     return null;
   }
-
-  const isDenied = permissionStatus === 'denied' || (error && error.code === 1);
-  const isUnavailable = error && error.code === 2;
 
   // Ouvrir les réglages Android si Cordova Diagnostic est présent
   const handleOpenSettings = () => {
