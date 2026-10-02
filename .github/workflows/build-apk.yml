@@ -1,4 +1,4 @@
-Name: Build Android APK (Cordova)
+name: Build Android APK (Cordova)
 
 on:
   push:
@@ -57,7 +57,7 @@ jobs:
           MANIFEST="platforms/android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             if ! grep -q "ACCESS_FINE_LOCATION" "$MANIFEST"; then
-              sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />' "$MANIFEST"
+              sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />' "$MANIFEST"
             fi
           fi
           
