@@ -1,14 +1,17 @@
-// Interception propre qui ignore complètement les erreurs CORS tierces
-window.onerror = function (message, source, lineno, colno, error) {
-  const errorMsg = typeof message === 'string' ? message : JSON.stringify(message || '');
-  
-  // Si c'est un Script error (CORS), on l'ignore totalement et on laisse tourner l'app
-  if (errorMsg.includes('Script error') || !source) {
-    console.warn("Erreur cross-origin masquée par le navigateur ignorée avec succès.");
-    return true; 
+// 1. Interception globale et silencieuse des erreurs de scripts tiers / CORS
+window.addEventListener('error', (event) => {
+  if (event.message === 'Script error.' || !event.filename) {
+    event.preventDefault();
+    return true;
   }
-
+  
   // Affichage uniquement pour les vraies erreurs de votre code interne
+  const errorMsg = typeof event.message === 'string' ? event.message : JSON.stringify(event.message || '');
+  const source = event.filename || 'Inconnu';
+  const lineno = event.lineno || 0;
+  const colno = event.colno || 0;
+  const error = event.error;
+
   const errorBox = document.createElement('div');
   errorBox.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:#111;color:#ff4444;padding:20px;z-index:999999;overflow:auto;font-family:monospace;font-size:13px;';
   errorBox.innerHTML = `
@@ -20,8 +23,9 @@ window.onerror = function (message, source, lineno, colno, error) {
   `;
   document.body.appendChild(errorBox);
   return true;
-};
+}, true);
 
+// 2. Empêche les rejets de promesses asynchrones non gérés de planter l'affichage
 window.addEventListener('unhandledrejection', function(event) {
-  event.preventDefault(); // Empêche les rejets de promesses async de planter l'affichage
+  event.preventDefault();
 });
