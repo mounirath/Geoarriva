@@ -1,4 +1,4 @@
-name: Build Android APK (Cordova)
+Name: Build Android APK (Cordova)
 
 on:
   push:
@@ -30,8 +30,7 @@ jobs:
 
       - name: Build Web Project (Vite)
         env:
-          VITE_ADMOB_CLIENT_ID: "ca-app-pub-1050422776945344~6855047295"
-          VITE_ADMOB_SLOT_ID: "ca-app-pub-1050422776945344/8752251197"
+          VITE_UNITY_GAME_ID: "800387003"
         run: bun run build
 
       - name: Install Cordova CLI
@@ -45,8 +44,8 @@ jobs:
           rm -rf www/*
           cp -r ../dist/* www/
           
-          # Plugin AdMob officiel configuré avec votre ID
-          cordova plugin add cordova-plugin-admob-free --variable ADMOB_APP_ID="ca-app-pub-1050422776945344~6855047295"
+          # Plugin Unity Ads pour Cordova configuré avec votre Game ID
+          cordova plugin add cordova-plugin-unity-ads --variable GAME_ID="800387003"
           cordova plugin add cordova-plugin-androidx-adapter
           
           # Plugin Geolocation officiel pour activer l'accès GPS natif dans AndroidManifest
@@ -58,7 +57,7 @@ jobs:
           MANIFEST="platforms/android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             if ! grep -q "ACCESS_FINE_LOCATION" "$MANIFEST"; then
-              sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />' "$MANIFEST"
+              sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />' "$MANIFEST"
             fi
           fi
           
