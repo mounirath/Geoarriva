@@ -1,49 +1,59 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Megaphone,
   Check,
-  ShieldCheck,
-  ExternalLink,
-  HelpCircle,
-  Play,
   Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 import { Translations } from '../utils/i18n';
-import { ADMOB_DEFAULTS } from '../services/AdMobService';
+import { UNITY_DEFAULTS } from '../services/UnityAdsService'; // Adaptez selon votre chemin
 
-interface AdSettingsModalProps {
+interface UnitySettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  clientId: string;
-  slotId: string;
-  onSaveConfig: (clientId: string, slotId: string) => void;
-  onTestAppOpenAd: () => void;
+  gameId: string;
+  bannerPlacement: string;
+  interstitialPlacement: string;
+  onSaveConfig: (gameId: string, bannerPlacement: string, interstitialPlacement: string) => void;
+  onTestInterstitial: () => void;
   t: Translations;
 }
 
-export const AdSettingsModal: React.FC<AdSettingsModalProps> = ({
+export const AdSettingsModal: React.FC<UnitySettingsModalProps> = ({
   isOpen,
   onClose,
-  clientId,
-  slotId,
+  gameId,
+  bannerPlacement,
+  interstitialPlacement,
   onSaveConfig,
-  onTestAppOpenAd,
+  onTestInterstitial,
   t,
 }) => {
-  const [inputClient, setInputClient] = useState(
-    clientId || ADMOB_DEFAULTS.APP_ID
+  const [inputGameId, setInputGameId] = useState(
+    gameId || UNITY_DEFAULTS.GAME_ID
   );
-  const [inputSlot, setInputSlot] = useState(
-    slotId || ADMOB_DEFAULTS.APP_OPEN_AD_UNIT_ID
+  const [inputBanner, setInputBanner] = useState(
+    bannerPlacement || UNITY_DEFAULTS.BANNER_PLACEMENT
+  );
+  const [inputInterstitial, setInputInterstitial] = useState(
+    interstitialPlacement || UNITY_DEFAULTS.INTERSTITIAL_PLACEMENT
   );
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setInputGameId(gameId || UNITY_DEFAULTS.GAME_ID);
+      setInputBanner(bannerPlacement || UNITY_DEFAULTS.BANNER_PLACEMENT);
+      setInputInterstitial(interstitialPlacement || UNITY_DEFAULTS.INTERSTITIAL_PLACEMENT);
+    }
+  }, [isOpen, gameId, bannerPlacement, interstitialPlacement]);
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSaveConfig(inputClient.trim(), inputSlot.trim());
+    onSaveConfig(inputGameId.trim(), inputBanner.trim(), inputInterstitial.trim());
     setSavedSuccess(true);
     setTimeout(() => {
       setSavedSuccess(false);
@@ -57,15 +67,15 @@ export const AdSettingsModal: React.FC<AdSettingsModalProps> = ({
         {/* En-tête */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
               <Megaphone className="w-4 h-4" />
             </div>
             <div>
               <h3 className="text-base font-bold text-white">
-                {t.admobTitle}
+                Configuration Unity Ads
               </h3>
               <p className="text-xs text-slate-400">
-                {t.admobSubtitle}
+                Paramétrez vos identifiants Unity
               </p>
             </div>
           </div>
@@ -82,52 +92,65 @@ export const AdSettingsModal: React.FC<AdSettingsModalProps> = ({
         <form onSubmit={handleSubmit} className="py-4 space-y-3.5">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              ID d'application AdMob (App ID)
+              Unity Game ID
             </label>
             <input
               type="text"
-              value={inputClient}
-              onChange={(e) => setInputClient(e.target.value)}
-              placeholder="ca-app-pub-1050422776945344~6855047295"
-              className="w-full py-2 px-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+              value={inputGameId}
+              onChange={(e) => setInputGameId(e.target.value)}
+              placeholder="800387003"
+              className="w-full py-2 px-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              ID Bloc Annonce à l'ouverture (App Open Ad Unit)
+              ID Placement Bannière (Banner)
             </label>
             <input
               type="text"
-              value={inputSlot}
-              onChange={(e) => setInputSlot(e.target.value)}
-              placeholder="ca-app-pub-1050422776945344/8752251197"
-              className="w-full py-2 px-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+              value={inputBanner}
+              onChange={(e) => setInputBanner(e.target.value)}
+              placeholder="BP_Banner_Android"
+              className="w-full py-2 px-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
             />
           </div>
 
-          {/* Bouton de test direct de l'Annonce à l'ouverture */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-300 mb-1">
+              ID Placement Interstitiel
+            </label>
+            <input
+              type="text"
+              value={inputInterstitial}
+              onChange={(e) => setInputInterstitial(e.target.value)}
+              placeholder="BP_Interstitial_Android"
+              className="w-full py-2 px-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+            />
+          </div>
+
+          {/* Bouton de test direct */}
           <div className="pt-1">
             <button
               type="button"
               onClick={() => {
                 onClose();
-                onTestAppOpenAd();
+                onTestInterstitial();
               }}
-              className="w-full py-2.5 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+              className="w-full py-2.5 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-indigo-500/30 text-indigo-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>{t.testAppOpenAd}</span>
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Tester une publicité Unity</span>
             </button>
           </div>
 
           <div className="bg-slate-950/60 rounded-2xl p-3 border border-slate-800/80 text-[11px] text-slate-400 space-y-1.5">
             <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
-              <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
-              <span>Format Annonce à l'ouverture (App Open Ad)</span>
+              <HelpCircle className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Informations Unity Ads</span>
             </div>
             <p>
-              L'annonce se superpose à l'écran de chargement lorsque l'utilisateur lance ou revient sur l'application mobile / PWA.
+              Assurez-vous que vos identifiants correspondent exactement à ceux créés sur votre tableau de bord Unity Dashboard.
             </p>
           </div>
 
@@ -135,15 +158,15 @@ export const AdSettingsModal: React.FC<AdSettingsModalProps> = ({
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2"
             >
               {savedSuccess ? (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>{t.adConfigSaved}</span>
+                  <span>Configuration enregistrée</span>
                 </>
               ) : (
-                <span>{t.saveAdConfig}</span>
+                <span>Enregistrer la configuration</span>
               )}
             </button>
           </div>
