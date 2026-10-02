@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, MapPin, Loader2, Compass } from 'lucide-react';
+import { Search, X, MapPin, Loader2, Compass, Star } from 'lucide-react';
 import { Coordinates, searchLocation, GeocodingResult } from '../utils/geo';
 import { Translations, Language } from '../utils/i18n';
 
 interface SearchBarProps {
   onSelectLocation: (coords: Coordinates, label: string) => void;
   destinationAddress: string | null;
+  destinationCoords?: Coordinates | null;
   onClearDestination: () => void;
+  onAddFavorite?: (name: string, coords: Coordinates) => void;
+  isDestinationFavorite?: boolean;
   t: Translations;
   lang: Language;
 }
@@ -68,7 +71,10 @@ const GET_TRANSIT_SUGGESTIONS = (lang: Language) => [
 export const SearchBar: React.FC<SearchBarProps> = ({
   onSelectLocation,
   destinationAddress,
+  destinationCoords,
   onClearDestination,
+  onAddFavorite,
+  isDestinationFavorite = false,
   t,
   lang,
 }) => {
@@ -76,6 +82,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const [results, setResults] = useState<GeocodingResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [justAddedFav, setJustAddedFav] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   const transitSuggestions = GET_TRANSIT_SUGGESTIONS(lang);
@@ -128,6 +135,15 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     onClearDestination();
   };
 
+  const handleQuickAddFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onAddFavorite || !destinationCoords) return;
+    const name = destinationAddress || t.selectedPoint;
+    onAddFavorite(name, destinationCoords);
+    setJustAddedFav(true);
+    setTimeout(() => setJustAddedFav(false), 2000);
+  };
+
   return (
     <div
       ref={searchContainerRef}
@@ -155,6 +171,28 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             placeholder={t.searchPlaceholder}
             className="w-full py-2.5 px-2 text-xs sm:text-sm bg-transparent text-slate-100 placeholder-slate-400 focus:outline-none"
           />
+
+          {/* Bouton rapide d'ajout aux favoris si destination active */}
+          {destinationCoords && onAddFavorite && (
+            <button
+              onClick={handleQuickAddFavorite}
+              type="button"
+              className={`p-1.5 mr-1 rounded-xl transition-all ${
+                isDestinationFavorite || justAddedFav
+                  ? 'text-amber-400 bg-amber-500/20'
+                  : 'text-slate-400 hover:text-amber-400 hover:bg-slate-800'
+              }`}
+              title={t.addFavorite}
+            >
+              <Star
+                className={`w-4 h-4 ${
+                  isDestinationFavorite || justAddedFav
+                    ? 'fill-amber-400 animate-pulse'
+                    : ''
+                }`}
+              />
+            </button>
+          )}
 
           {query && (
             <button

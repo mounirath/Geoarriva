@@ -41,7 +41,7 @@ jobs:
         cp -r ../dist/* www/
         
         # Ajout du plugin AdMob et de l'adaptateur AndroidX pour éviter l'erreur de compilation
-        cordova plugin add cordova-plugin-admob-free --variable ADMOB_APP_ID="ca-app-pub-1050422776945344~6655047295"
+        cordova plugin add cordova-plugin-admob-free --variable ADMOB_APP_ID="ca-app-pub-1050422776945344~6855047295"
         cordova plugin add cordova-plugin-androidx-adapter
         
         cordova platform add android

@@ -87,6 +87,31 @@ export interface Translations {
   adConfigSaved: string;
   adMobTestNotice: string;
   closeAd: string;
+  locPermissionRequiredTitle: string;
+  locPermissionRequiredDesc: string;
+  locPermissionDeniedTitle: string;
+  locPermissionDeniedDesc: string;
+  locPermissionDeniedInstructions: string;
+  locAuthorizeBtn: string;
+  locRetryBtn: string;
+  locAcquiringPosition: string;
+  locChromeAndroidTip: string;
+  locSafariTip: string;
+  locErrorTimeout: string;
+  locErrorUnavailable: string;
+  locActiveGpsBadge: string;
+  addFavorite: string;
+  addNewFavorite: string;
+  favSearchAddress: string;
+  favAddedSuccess: string;
+  favAlreadyExists: string;
+  chooseOnMapOrSearch: string;
+  appOpenAdTitle: string;
+  appOpenAdDesc: string;
+  skipAd: string;
+  adMobAppOpenBadge: string;
+  continueToApp: string;
+  testAppOpenAd: string;
 }
 
 export const TRANSLATIONS: Record<Language, Translations> = {
@@ -171,6 +196,31 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     adConfigSaved: 'Configuration AdMob enregistrée',
     adMobTestNotice: 'Bannière active au format standard mobile 320x50',
     closeAd: 'Fermer',
+    locPermissionRequiredTitle: 'Position GPS Requise',
+    locPermissionRequiredDesc: "arreva nécessite impérativement l'accès à votre position GPS pour calculer la distance restante et déclencher votre réveil à l'approche de votre arrêt.",
+    locPermissionDeniedTitle: 'Accès GPS Bloqué ou Refusé',
+    locPermissionDeniedDesc: "L'autorisation de géolocalisation a été refusée ou désactivée. Sans GPS réel, l'application ne peut pas vous réveiller automatiquement à l'arrivée.",
+    locPermissionDeniedInstructions: "Pour réactiver le GPS : appuyez sur l'icône de cadenas ou paramètres du site à gauche de l'adresse, choisissez 'Autorisations', puis activez 'Localisation'.",
+    locAuthorizeBtn: 'Autoriser la localisation',
+    locRetryBtn: 'Réessayer / Détecter ma position',
+    locAcquiringPosition: 'Acquisition du signal GPS en cours...',
+    locChromeAndroidTip: 'Sur Chrome Android : Touchez les paramètres du site (icône cadenas) > Autorisations > Localisation > Autoriser.',
+    locSafariTip: 'Sur iPhone / Safari : Allez dans Réglages > Safari > Position > Autoriser.',
+    locErrorTimeout: "Délai d'attente dépassé pour capter le signal GPS. Assurez-vous d'avoir une vue dégagée vers le ciel.",
+    locErrorUnavailable: 'Signal GPS temporairement indisponible sur votre appareil.',
+    locActiveGpsBadge: 'GPS Haute Précision Actif',
+    addFavorite: 'Ajouter aux favoris',
+    addNewFavorite: 'Ajouter un nouveau favori',
+    favSearchAddress: 'Rechercher une adresse ou une station...',
+    favAddedSuccess: 'Favori ajouté avec succès !',
+    favAlreadyExists: 'Cet arrêt figure déjà dans vos favoris.',
+    chooseOnMapOrSearch: 'Rechercher une adresse ou choisir sur la carte',
+    appOpenAdTitle: "Annonce à l'ouverture",
+    appOpenAdDesc: 'Chargement de vos trajets et réveil GPS en cours...',
+    skipAd: "Passer l'annonce",
+    adMobAppOpenBadge: 'AdMob · Annonce à l’ouverture',
+    continueToApp: 'Accéder à arreva',
+    testAppOpenAd: "Tester l'annonce à l'ouverture",
   },
   en: {
     appName: 'arreva',
@@ -253,6 +303,31 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     adConfigSaved: 'AdMob configuration saved',
     adMobTestNotice: 'Standard 320x50 Mobile Ad Banner Active',
     closeAd: 'Close',
+    locPermissionRequiredTitle: 'GPS Location Required',
+    locPermissionRequiredDesc: 'arreva requires access to your real GPS location to calculate the remaining distance and trigger your wake-up alarm as you arrive.',
+    locPermissionDeniedTitle: 'GPS Access Denied or Blocked',
+    locPermissionDeniedDesc: 'Geolocation permission was denied. Without real GPS, the app cannot accurately track your transit progress or wake you up at your stop.',
+    locPermissionDeniedInstructions: "To enable GPS: tap the lock or site settings icon on the left of the address bar, select 'Permissions', then enable 'Location'.",
+    locAuthorizeBtn: 'Allow Location',
+    locRetryBtn: 'Retry / Detect My Location',
+    locAcquiringPosition: 'Acquiring GPS fix...',
+    locChromeAndroidTip: 'On Chrome Android: Tap site settings (lock icon) > Permissions > Location > Allow.',
+    locSafariTip: 'On iPhone / Safari: Go to Settings > Safari > Location > Allow.',
+    locErrorTimeout: 'GPS acquisition timed out. Ensure you have a clear view of the sky.',
+    locErrorUnavailable: 'GPS position is temporarily unavailable on your device.',
+    locActiveGpsBadge: 'High Accuracy GPS Active',
+    addFavorite: 'Add to favorites',
+    addNewFavorite: 'Add a new favorite',
+    favSearchAddress: 'Search an address or station...',
+    favAddedSuccess: 'Favorite added successfully!',
+    favAlreadyExists: 'This stop is already in your favorites.',
+    chooseOnMapOrSearch: 'Search an address or pick on map',
+    appOpenAdTitle: 'App Open Ad',
+    appOpenAdDesc: 'Loading your trips and transit wake-up alarm...',
+    skipAd: 'Skip Ad',
+    adMobAppOpenBadge: 'AdMob · App Open Ad',
+    continueToApp: 'Continue to arreva',
+    testAppOpenAd: 'Test App Open Ad',
   },
   ar: {
     appName: 'أريفا - arreva',
@@ -335,5 +410,30 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     adConfigSaved: 'تم حفظ إعدادات AdMob',
     adMobTestNotice: 'بانر إعلاني للهاتف المحمول بنسق 320x50 مفعّل',
     closeAd: 'إغلاق',
+    locPermissionRequiredTitle: 'تحديد الموقع GPS إلزامي',
+    locPermissionRequiredDesc: 'يتطلب تطبيق أريفا الوصول إلى موقعك الحقيقي لحساب المسافة بدقة وإيقاظك قبل الوصول لمحطتك.',
+    locPermissionDeniedTitle: 'تم رفض إذن تحديد الموقع GPS',
+    locPermissionDeniedDesc: 'تم رفض إذن الوصول إلى الموقع. بدون تتبع GPS الفعلي، لا يمكن للمنبه معرفة وصولك بدقة.',
+    locPermissionDeniedInstructions: "لتفعيل الموقع: اضغط على أيقونة القفل أو إعدادات الموقع بجانب شريط العنوان، ثم اختر 'الأذونات' وقم بتفعيل 'الموقع'.",
+    locAuthorizeBtn: 'السماح بتحديد الموقع',
+    locRetryBtn: 'إعادة المحاولة / تحديد موقعي',
+    locAcquiringPosition: 'جاري التقاط إشارة GPS بدقة عالية...',
+    locChromeAndroidTip: 'في Chrome Android: اضغط على القفل بجانب الرابط > الأذونات > الموقع > سماح.',
+    locSafariTip: 'في iPhone / Safari: افتح الإعدادات > Safari > الموقع > سماح.',
+    locErrorTimeout: 'انتهت مهلة التقاط إشارة GPS. تأكد من أنك في مكان يتيح التقاط إشارة الأقمار الصناعية.',
+    locErrorUnavailable: 'إشارة GPS غير متوفرة مؤقتًا على جهازك.',
+    locActiveGpsBadge: 'نظام GPS عالي الدقة نشط',
+    addFavorite: 'إضافة إلى المفضلة',
+    addNewFavorite: 'إضافة وجهة مفضلة جديدة',
+    favSearchAddress: 'ابحث عن عنوان أو محطة...',
+    favAddedSuccess: 'تمت إضافة الوجهة إلى المفضلة بنجاح!',
+    favAlreadyExists: 'هذه المحطة موجودة بالفعل في المفضلة.',
+    chooseOnMapOrSearch: 'ابحث عن عنوان أو حدد من الخريطة',
+    appOpenAdTitle: 'إعلان عند فتح التطبيق',
+    appOpenAdDesc: 'جاري تحميل مساراتك ومنبه الوصول GPS...',
+    skipAd: 'تخطي الإعلان',
+    adMobAppOpenBadge: 'AdMob · إعلان عند الفتح',
+    continueToApp: 'متابعة إلى أريفا',
+    testAppOpenAd: 'تجربة إعلان الفتح',
   },
 };

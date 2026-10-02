@@ -6,8 +6,11 @@ import {
   ShieldCheck,
   ExternalLink,
   HelpCircle,
+  Play,
+  Sparkles,
 } from 'lucide-react';
 import { Translations } from '../utils/i18n';
+import { ADMOB_DEFAULTS } from '../services/AdMobService';
 
 interface AdSettingsModalProps {
   isOpen: boolean;
@@ -15,6 +18,7 @@ interface AdSettingsModalProps {
   clientId: string;
   slotId: string;
   onSaveConfig: (clientId: string, slotId: string) => void;
+  onTestAppOpenAd: () => void;
   t: Translations;
 }
 
@@ -24,10 +28,15 @@ export const AdSettingsModal: React.FC<AdSettingsModalProps> = ({
   clientId,
   slotId,
   onSaveConfig,
+  onTestAppOpenAd,
   t,
 }) => {
-  const [inputClient, setInputClient] = useState(clientId);
-  const [inputSlot, setInputSlot] = useState(slotId);
+  const [inputClient, setInputClient] = useState(
+    clientId || ADMOB_DEFAULTS.APP_ID
+  );
+  const [inputSlot, setInputSlot] = useState(
+    slotId || ADMOB_DEFAULTS.APP_OPEN_AD_UNIT_ID
+  );
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   if (!isOpen) return null;
@@ -73,37 +82,52 @@ export const AdSettingsModal: React.FC<AdSettingsModalProps> = ({
         <form onSubmit={handleSubmit} className="py-4 space-y-3.5">
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              {t.adClientId}
+              ID d'application AdMob (App ID)
             </label>
             <input
               type="text"
               value={inputClient}
               onChange={(e) => setInputClient(e.target.value)}
-              placeholder="ca-pub-1234567890123456"
+              placeholder="ca-app-pub-1050422776945344~6855047295"
               className="w-full py-2 px-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              {t.adSlotId}
+              ID Bloc Annonce à l'ouverture (App Open Ad Unit)
             </label>
             <input
               type="text"
               value={inputSlot}
               onChange={(e) => setInputSlot(e.target.value)}
-              placeholder="1234567890"
+              placeholder="ca-app-pub-1050422776945344/8752251197"
               className="w-full py-2 px-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
             />
+          </div>
+
+          {/* Bouton de test direct de l'Annonce à l'ouverture */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onTestAppOpenAd();
+              }}
+              className="w-full py-2.5 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-amber-500/30 text-amber-300 text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>{t.testAppOpenAd}</span>
+            </button>
           </div>
 
           <div className="bg-slate-950/60 rounded-2xl p-3 border border-slate-800/80 text-[11px] text-slate-400 space-y-1.5">
             <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
               <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
-              <span>Intégration Google AdMob / AdSense</span>
+              <span>Format Annonce à l'ouverture (App Open Ad)</span>
             </div>
             <p>
-              Pour les applications web, la régie publicitaire Google utilise les balises standards d'annonces mobiles (format bannière 320x50).
+              L'annonce se superpose à l'écran de chargement lorsque l'utilisateur lance ou revient sur l'application mobile / PWA.
             </p>
           </div>
 
