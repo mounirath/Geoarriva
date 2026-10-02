@@ -1,20 +1,23 @@
-// 1. Interception globale et silencieuse des erreurs de scripts tiers / CORS
+// === NEUTRALISATION TOTALE DES SCRIPT ERRORS (CORS) ===
 window.addEventListener('error', (event) => {
-  if (event.message === 'Script error.' || !event.filename) {
+  // Si c'est une erreur de script externe/CORS, on bloque l'événement net
+  if (!event.message || event.message === 'Script error.' || event.message.includes('Script error') || !event.filename || event.filename === '') {
     event.preventDefault();
+    event.stopImmediatePropagation();
     return true;
   }
 }, true);
 
-window.addEventListener('unhandledrejection', function(event) {
+window.addEventListener('unhandledrejection', (event) => {
   event.preventDefault();
 });
+// ======================================================
 
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-// 2. Client-Side Quota Defense (Demo Key Specialization)
+// Client-Side Quota Defense (Google Maps)
 (window as any).gm_authFailure = () => {
   window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'));
 };
