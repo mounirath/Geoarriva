@@ -14,76 +14,10 @@ import {
   Map as MapIcon,
   Type,
   Megaphone,
-  Locate,
   Loader2,
-  CheckCircle2,
 } from 'lucide-react';
 
 import { unityAdsService } from './services/UnityAdsService';
-import { APIProvider } from '@vis.gl/react-google-maps';
-import { coordinates, calculateHaversineDistance } from './utils/geo';
-import { alertSystem, SOUND_OPTIONS } from './utils/audioAlert';
-import { GoogleMapComponent } from './components/GoogleMapComponent';
-import { MapComponent } from './components/MapComponent';
-import { SearchBar } from './components/SearchBar';
-import { TrackingHUD } from './components/TrackingHUD';
-import { AlertModal } from './components/AlertModal';
-import { SoundSettingsModal } from './components/SoundSettingsModal';
-import { FavoritesModal } from './components/FavoritesModal';
-import { AdBanner } from './components/AdBanner';
-import { AdSettingsModal } from './components/AdSettingsModal';
-import { AppOpenAdModal } from './components/AppOpenAdModal';
-import { LocationPermissionModal } from './components/LocationPermissionModal';
-import { GpsDetailsModal } from './components/GpsDetailsModal';
-import { useLocationManager } from './hooks/useLocationManager';
-import { admobService, ADMOB_DEFAULTS } from './services/AdMobService'; // Vous pourrez le supprimer si vous n'utilisez plus AdMob
-import { Language, TextSize, translations } from './utils/i18n';
-
-const GOOGLE_MAPS_API_KEY =
-  (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY ||
-  'AIzaSyCezWw2xK5...'; // Votre clé
-
-const INITIAL_FAVORITES = [
-  { id: '1', name: 'Gare de Lyon, Paris', lat: 48.8443, lng: 2.3744 },
-  { id: '2', name: 'Gare Montparnasse, Paris', lat: 48.8412, lng: 2.3205 },
-  { id: '3', name: "Aéroport CDG Terminal 2", lat: 49.0097, lng: 2.5479 },
-  { id: '4', name: 'La Défense - Grande Arche', lat: 48.8924, lng: 2.2361 },
-  { id: '5', name: 'Gare Saint-Lazare, Paris', lat: 48.8768, lng: 2.3252 },
-];
-
-export default function App() {
-  // Initialisation de Unity Ads au chargement de l'application
-  useEffect(() => {
-    unityAdsService.initialize('800387003', true); // true = mode test, false = production
-  }, []);
-
-  // Service hook de localisation GPS native
-  const {
-    location,
-    accuracy,
-    speed,
-    currentSpeed,
-    permissionStatus,
-    isLocating,
-    gpsError,
-  } = useLocationManager();
-
-  // ... le reste de votre logique d'application existante ...
-
-  return (
-    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
-      {/* Votre interface principale */}
-      <div className="p-4 text-center">
-        <h1 className="text-xl font-bold">Arreva - Transport GPS</h1>
-        <p className="text-xs text-indigo-400">Unity Ads configuré (ID: 800387003)</p>
-      </div>
-    </div>
-  );
-}
-
-
-export default App;
-
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Coordinates, calculateHaversineDistance } from './utils/geo';
 import { alertSystem, SoundType, SOUND_OPTIONS } from './utils/audioAlert';
@@ -105,7 +39,7 @@ import { Language, TextSize, TRANSLATIONS } from './utils/i18n';
 
 const GOOGLE_MAPS_API_KEY =
   (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) ||
-  'AIzaSyCq2wtmRNcXOYuV0sFCtn0SavzvLi4nlAU';
+  'AIzaSyCezWw2xK5...';
 
 const INITIAL_FAVORITES: FavoriteLocation[] = [
   { id: '1', name: 'Gare de Lyon, Paris', lat: 48.8443, lng: 2.3744 },
@@ -116,6 +50,11 @@ const INITIAL_FAVORITES: FavoriteLocation[] = [
 ];
 
 export default function App() {
+  // Initialisation de Unity Ads au chargement de l'application (Game ID : 800387003)
+  useEffect(() => {
+    unityAdsService.initialize('800387003', true); // true = mode test, false = production
+  }, []);
+
   // Service et Hook centralisé de localisation GPS native
   const {
     location: userLocation,
@@ -182,7 +121,7 @@ export default function App() {
   });
   const [isAdSettingsOpen, setIsAdSettingsOpen] = useState<boolean>(false);
 
-  // Annonce à l'ouverture (App Open Ad) : déclenchée lors de la reprise (resume) ou test manuel
+  // Annonce à l'ouverture (App Open Ad)
   const [isAppOpenAdVisible, setIsAppOpenAdVisible] = useState<boolean>(false);
 
   // États de destination et alerte
@@ -238,7 +177,7 @@ export default function App() {
     }
   }, [userLocation, userAccuracy, lang, isSimulating]);
 
-  // Détection du retour en premier plan pour déclencher l'annonce à l'ouverture si cooldown dépassé
+  // Détection du retour en premier plan pour déclencher l'annonce à l'ouverture
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -266,47 +205,34 @@ export default function App() {
   const effectiveLocation = isSimulating ? simulatedLocation : userLocation;
   const effectiveSpeed = isSimulating ? simulatedSpeed : currentSpeed;
 
-  // Sauvegarde des préférences
+  // Sauvegarde des préférences persistantes
   useEffect(() => {
     try {
       localStorage.setItem('transit_lang', lang);
-    } catch (e) {
-      // ignore
-    }
+    } catch {}
   }, [lang]);
 
   useEffect(() => {
     try {
       localStorage.setItem('transit_text_size', textSize);
-    } catch (e) {
-      // ignore
-    }
+    } catch {}
   }, [textSize]);
 
-  // Synchronisation document HTML pour direction RTL en Arabe
   useEffect(() => {
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
   }, [lang]);
 
-  // Détection du quota Google Maps Platform
   useEffect(() => {
-    const handleQuotaExceeded = () => {
-      setQuotaExceeded(true);
-    };
+    const handleQuotaExceeded = () => setQuotaExceeded(true);
     window.addEventListener('gmp-quota-exceeded', handleQuotaExceeded);
-    return () => {
-      window.removeEventListener('gmp-quota-exceeded', handleQuotaExceeded);
-    };
+    return () => window.removeEventListener('gmp-quota-exceeded', handleQuotaExceeded);
   }, []);
 
-  // Sauvegarde des favoris
   useEffect(() => {
     try {
       localStorage.setItem('transit_favorites', JSON.stringify(favorites));
-    } catch (e) {
-      // ignore
-    }
+    } catch {}
   }, [favorites]);
 
   // Calcul en direct de la distance entre l'utilisateur et la destination
@@ -322,14 +248,10 @@ export default function App() {
 
   // Surveillance du franchissement du rayon d'alerte
   useEffect(() => {
-    if (!isTracking || !destination || distanceToDestination === null) {
-      return;
-    }
+    if (!isTracking || !destination || distanceToDestination === null) return;
 
-    if (distanceToDestination <= alertRadius) {
-      if (!isAlarmActive) {
-        setIsAlarmActive(true);
-      }
+    if (distanceToDestination <= alertRadius && !isAlarmActive) {
+      setIsAlarmActive(true);
     }
   }, [isTracking, distanceToDestination, alertRadius, isAlarmActive, destination]);
 
@@ -339,7 +261,6 @@ export default function App() {
 
     alertSystem.ensureAudioContext();
     await alertSystem.requestWakeLock();
-
     setIsTracking(true);
 
     if (isSimulating) {
@@ -351,15 +272,12 @@ export default function App() {
           const newLng = current.lng + (destination.lng - current.lng) * 0.12;
           return { lat: newLat, lng: newLng };
         });
-        setSimulatedSpeed(12.5); // ~45 km/h
+        setSimulatedSpeed(12.5);
       }, 1500);
       return;
     }
 
-    // Suivi GPS natif en continu via LocationManager
-    startWatch(() => {
-      // Le state est mis à jour automatiquement par useLocationManager
-    });
+    startWatch(() => {});
   }, [destination, isSimulating, startWatch]);
 
   // Arrêter le suivi et l'alarme
@@ -368,43 +286,36 @@ export default function App() {
     setIsAlarmActive(false);
     alertSystem.stopAlarm();
     alertSystem.releaseWakeLock();
-
     stopWatch();
 
     if (simulationIntervalRef.current !== null) {
       clearInterval(simulationIntervalRef.current);
       simulationIntervalRef.current = null;
     }
-
     setSimulatedSpeed(null);
   }, [stopWatch]);
 
-  // Définir la destination depuis la carte
   const handleSelectDestinationFromMap = (coords: Coordinates) => {
     if (isTracking) return;
     setDestination(coords);
     setDestinationAddress(`${t.arrivalPoint} (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`);
   };
 
-  // Définir la destination depuis la recherche ou un favori
   const handleSelectLocation = (coords: Coordinates, label: string) => {
     if (isTracking) return;
     setDestination(coords);
     setDestinationAddress(label);
   };
 
-  // Effacer la destination
   const handleClearDestination = () => {
     if (isTracking) handleStopTracking();
     setDestination(null);
     setDestinationAddress(null);
   };
 
-  // Gestion des favoris
   const handleAddFavorite = (name: string, coords: Coordinates) => {
     const exists = favorites.some(
-      (f) =>
-        Math.abs(f.lat - coords.lat) < 0.0005 && Math.abs(f.lng - coords.lng) < 0.0005
+      (f) => Math.abs(f.lat - coords.lat) < 0.0005 && Math.abs(f.lng - coords.lng) < 0.0005
     );
     if (exists) return;
 
@@ -421,7 +332,6 @@ export default function App() {
     setFavorites((prev) => prev.filter((f) => f.id !== id));
   };
 
-  // Vérifier si la destination actuelle est déjà en favori
   const isDestinationFavorite = destination
     ? favorites.some(
         (f) =>
@@ -430,23 +340,17 @@ export default function App() {
       )
     : false;
 
-  // Sauvegarde config AdMob
   const handleSaveAdConfig = (client: string, slot: string) => {
     setAdClientId(client);
     setAdSlotId(slot);
     try {
       localStorage.setItem('transit_ad_client', client);
       localStorage.setItem('transit_ad_slot', slot);
-    } catch {
-      // ignore
-    }
+    } catch {}
   };
 
-  // Basculer le mode simulation
   const handleToggleSimulation = () => {
-    if (isTracking) {
-      handleStopTracking();
-    }
+    if (isTracking) handleStopTracking();
     const nextState = !isSimulating;
     setIsSimulating(nextState);
 
@@ -468,16 +372,14 @@ export default function App() {
     }
   };
 
-  // Avancer manuellement d'un pas vers l'arrivée (Test)
   const handleSimulateStep = () => {
     if (!simulatedLocation || !destination) return;
     const newLat = simulatedLocation.lat + (destination.lat - simulatedLocation.lat) * 0.35;
     const newLng = simulatedLocation.lng + (destination.lng - simulatedLocation.lng) * 0.35;
     setSimulatedLocation({ lat: newLat, lng: newLng });
-    setSimulatedSpeed(13.8); // 50 km/h
+    setSimulatedSpeed(13.8);
   };
 
-  // Bascule cyclique de la taille du texte (Normal -> Grand -> Très Grand)
   const cycleTextSize = () => {
     setTextSize((prev) => {
       if (prev === 'normal') return 'large';
@@ -493,7 +395,6 @@ export default function App() {
   const currentSoundName =
     SOUND_OPTIONS.find((s) => s.id === selectedSound)?.name || 'Carillon';
 
-  // Nettoyage au démontage
   useEffect(() => {
     return () => {
       stopWatch();
@@ -511,7 +412,6 @@ export default function App() {
         dir={lang === 'ar' ? 'rtl' : 'ltr'}
         className={`relative w-screen h-screen overflow-hidden bg-slate-950 flex flex-col font-sans select-none text-scale-${textSize}`}
       >
-        {/* Annonce à l'ouverture AdMob (App Open Ad) superposée à l'écran de chargement */}
         <AppOpenAdModal
           isOpen={isAppOpenAdVisible}
           onClose={() => setIsAppOpenAdVisible(false)}
@@ -519,27 +419,24 @@ export default function App() {
           lang={lang}
         />
 
-        {/* Bannière de quota Google Maps Platform si dépassé */}
         {quotaExceeded && (
           <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
             <span>
-              Google Maps Platform quota reached. If you are the app owner, visit{' '}
+              Google Maps Platform quota reached. Visit{' '}
               <a
-                href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+                href="https://developers.google.com/maps/ai/ai-studio"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline font-semibold text-amber-950 hover:text-amber-800"
               >
                 maps developer site
               </a>{' '}
-              for instructions to update your account.
+              for details.
             </span>
           </div>
         )}
 
-        {/* Top Bar épurée (1 row, 3 zones) */}
         <header className="absolute top-0 left-0 right-0 z-[500] h-14 px-3 sm:px-4 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between pointer-events-auto">
-          {/* Zone 1: Marque & Indicateur d'état GPS réel */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-amber-500 flex items-center justify-center shadow-md shadow-amber-500/20 text-slate-950 font-black">
               <Compass className="w-5 h-5 text-slate-950" />
@@ -548,7 +445,6 @@ export default function App() {
               {t.appName}
             </span>
 
-            {/* Pastille d'état GPS natif cliquable pour voir les détails */}
             <button
               onClick={() => {
                 if (userLocation || isSimulating) {
@@ -560,12 +456,11 @@ export default function App() {
               type="button"
               className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
                 isRealGps || isSimulating
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/35 hover:bg-emerald-500/20'
                   : isGpsLoading
                   ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 animate-pulse'
                   : 'bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20'
               }`}
-              title="Afficher les détails de ma position GPS"
             >
               {isGpsLoading ? (
                 <Loader2 className="w-2.5 h-2.5 animate-spin" />
@@ -574,94 +469,72 @@ export default function App() {
               ) : (
                 <AlertTriangle className="w-2.5 h-2.5" />
               )}
-              <span>
-                {isRealGps || isSimulating ? 'GPS Actif' : isGpsLoading ? '...' : '! GPS'}
-              </span>
+              <span>{isRealGps || isSimulating ? 'GPS Actif' : isGpsLoading ? '...' : '! GPS'}</span>
             </button>
           </div>
 
-          {/* Zone 2: Contrôles rapides */}
           <div className="flex items-center gap-1 sm:gap-1.5">
-            {/* Sélecteur de Langue (FR / EN / AR) */}
             <div className="flex items-center bg-slate-800/80 rounded-xl p-0.5 border border-slate-700/60">
               {(['fr', 'en', 'ar'] as Language[]).map((l) => (
                 <button
                   key={l}
                   onClick={() => setLang(l)}
                   className={`px-2 py-1 rounded-lg text-[10px] sm:text-[11px] font-bold transition-all ${
-                    lang === l
-                      ? 'bg-amber-500 text-slate-950 shadow-sm'
-                      : 'text-slate-400 hover:text-white'
+                    lang === l ? 'bg-amber-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
                   }`}
-                  title={l.toUpperCase()}
                 >
                   {l === 'fr' ? 'FR' : l === 'en' ? 'EN' : 'عر'}
                 </button>
               ))}
             </div>
 
-            {/* Bouton Agrandissement de texte */}
             <button
               onClick={cycleTextSize}
               type="button"
               className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-slate-200 text-xs font-semibold transition-all active:scale-95"
-              title={`${t.textSize}: ${textSizeLabel}`}
             >
               <Type className="w-3.5 h-3.5 text-amber-400" />
               <span className="font-mono text-[11px] font-bold">{textSizeBadge}</span>
             </button>
 
-            {/* Bascule moteur Google Maps / OSM */}
             <button
-              onClick={() =>
-                setMapEngine((prev) => (prev === 'google' ? 'leaflet' : 'google'))
-              }
+              onClick={() => setMapEngine((prev) => (prev === 'google' ? 'leaflet' : 'google'))}
               type="button"
               className={`flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-medium border transition-colors ${
                 mapEngine === 'google'
                   ? 'bg-blue-600/30 text-blue-300 border-blue-500/50'
                   : 'bg-slate-800/70 text-slate-300 border-slate-700/60'
               }`}
-              title={mapEngine === 'google' ? t.googleMaps : t.osm}
             >
               <MapIcon className="w-3.5 h-3.5 text-blue-400" />
               <span className="hidden md:inline">{mapEngine === 'google' ? 'Google' : 'OSM'}</span>
             </button>
 
-            {/* Bouton Sonneries */}
             <button
               onClick={() => setIsSoundModalOpen(true)}
               type="button"
-              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700/60 transition-colors"
-              title={t.ringtones}
+              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 border border-slate-700/60 transition-colors"
             >
               <Music className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden lg:inline">{t.ringtones}</span>
             </button>
 
-            {/* Bouton Favoris */}
             <button
               onClick={() => setIsFavoritesModalOpen(true)}
               type="button"
-              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-amber-400 hover:text-amber-300 border border-slate-700/60 transition-colors"
-              title={t.favorites}
+              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-amber-400 border border-slate-700/60 transition-colors"
             >
               <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
-              <span className="hidden lg:inline">{t.favorites}</span>
             </button>
 
-            {/* Bouton Paramètres AdMob */}
             <button
               onClick={() => setIsAdSettingsOpen(true)}
               type="button"
-              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-amber-400 hover:text-amber-300 border border-slate-700/60 transition-colors"
-              title={t.admobTitle}
+              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-amber-400 border border-slate-700/60 transition-colors"
             >
               <Megaphone className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          {/* Zone 3: Action rapide / réinitialisation */}
           <div className="flex items-center gap-1.5">
             {destination && !isTracking && (
               <button
@@ -681,7 +554,6 @@ export default function App() {
           </div>
         </header>
 
-        {/* Barre de recherche d'adresse / arrêts & Ajout rapide en favoris */}
         <div className="absolute top-14 left-0 right-0 z-[500] pointer-events-auto">
           <SearchBar
             onSelectLocation={handleSelectLocation}
@@ -693,43 +565,28 @@ export default function App() {
             t={t}
             lang={lang}
           />
-
-          {/* Bannière Mobile AdMob (Non-intrusive) */}
-          <AdBanner
-            clientId={adClientId}
-            slotId={adSlotId}
-            t={t}
-            onOpenSettings={() => setIsAdSettingsOpen(true)}
-          />
+          <AdBanner clientId={adClientId} slotId={adSlotId} t={t} onOpenSettings={() => setIsAdSettingsOpen(true)} />
         </div>
 
-        {/* Toast de confirmation de position GPS au démarrage */}
         {gpsNotification && (
-          <div className="absolute top-28 left-1/2 -translate-x-1/2 z-[550] pointer-events-none animate-in fade-in slide-in-from-top-3 duration-300">
+          <div className="absolute top-28 left-1/2 -translate-x-1/2 z-[550] pointer-events-none animate-in fade-in duration-300">
             <div className={`px-3.5 py-1.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-semibold backdrop-blur-md border ${
               gpsNotification.type === 'success'
                 ? 'bg-emerald-950/95 text-emerald-200 border-emerald-500/50'
                 : 'bg-slate-900/95 text-amber-300 border-amber-500/40'
             }`}>
-              {gpsNotification.type === 'success' ? (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              ) : (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-              )}
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <span>{gpsNotification.message}</span>
             </div>
           </div>
         )}
 
-        {/* Notification discrète d'erreur GPS s'il y a lieu */}
         {gpsError && permissionStatus !== 'denied' && (
           <div className="absolute top-36 left-4 right-4 z-[450] max-w-md mx-auto pointer-events-none">
             <div className="bg-amber-500/10 border border-amber-500/30 backdrop-blur-md rounded-2xl p-2.5 flex items-center justify-between gap-2.5 text-xs text-amber-200 shadow-lg pointer-events-auto">
               <div className="flex items-center gap-2 min-w-0">
                 <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-                <span className="text-[11px] leading-tight truncate">
-                  {gpsError.message}
-                </span>
+                <span className="text-[11px] leading-tight truncate">{gpsError.message}</span>
               </div>
               <button
                 onClick={() => requestLocation()}
@@ -741,7 +598,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Carte interactive pleine page (Google Maps ou Leaflet) */}
         <main className="flex-1 w-full h-full relative">
           {mapEngine === 'google' ? (
             <GoogleMapComponent
@@ -772,7 +628,6 @@ export default function App() {
           )}
         </main>
 
-        {/* Panneau de contrôle bas (HUD Ergonomique pouce mobile) */}
         <TrackingHUD
           isTracking={isTracking}
           distance={distanceToDestination}
@@ -792,7 +647,6 @@ export default function App() {
           t={t}
         />
 
-        {/* Modal / Bannière d'alerte urgente au franchissement du rayon */}
         <AlertModal
           isOpen={isAlarmActive}
           distance={distanceToDestination}
@@ -802,7 +656,6 @@ export default function App() {
           t={t}
         />
 
-        {/* Modal des réglages de sonneries */}
         <SoundSettingsModal
           isOpen={isSoundModalOpen}
           onClose={() => setIsSoundModalOpen(false)}
@@ -814,7 +667,6 @@ export default function App() {
           lang={lang}
         />
 
-        {/* Modal des arrêts et trajets favoris avec recherche et ajout directs */}
         <FavoritesModal
           isOpen={isFavoritesModalOpen}
           onClose={() => setIsFavoritesModalOpen(false)}
@@ -827,7 +679,6 @@ export default function App() {
           t={t}
         />
 
-        {/* Modal de configuration AdMob avec prévisualisation de l'App Open Ad */}
         <AdSettingsModal
           isOpen={isAdSettingsOpen}
           onClose={() => setIsAdSettingsOpen(false)}
@@ -838,7 +689,6 @@ export default function App() {
           t={t}
         />
 
-        {/* Modal / Interface obligatoire de demande et déblocage de géolocalisation native */}
         <LocationPermissionModal
           permissionStatus={permissionStatus}
           isLoading={isGpsLoading}
@@ -849,7 +699,6 @@ export default function App() {
           lang={lang}
         />
 
-        {/* Modal détaillée d'affichage et partage de la position GPS */}
         <GpsDetailsModal
           isOpen={isGpsDetailsOpen}
           onClose={() => setIsGpsDetailsOpen(false)}
@@ -860,9 +709,7 @@ export default function App() {
           isRealGps={isRealGps || isSimulating}
           isLoading={isGpsLoading}
           onRequestLocation={() => requestLocation()}
-          onCenterMap={() => {
-            // Déclenché depuis la modal
-          }}
+          onCenterMap={() => {}}
           t={t}
           lang={lang}
         />
