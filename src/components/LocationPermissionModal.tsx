@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import {
   Compass,
-  MapPin,
   AlertTriangle,
-  Lock,
   Smartphone,
   RefreshCw,
   Loader2,
-  CheckCircle2,
-  Info,
-  ExternalLink,
+  X,
+  MapPin,
+  ArrowRight,
+  Settings,
 } from 'lucide-react';
 import { PermissionState, LocationError } from '../services/LocationManager';
 import { Translations, Language } from '../utils/i18n';
@@ -40,23 +39,32 @@ export const LocationPermissionModal: React.FC<LocationPermissionModalProps> = (
     return null;
   }
 
-  // Si l'utilisateur a fermé temporairement la modal, afficher une bannière compacte d'alerte en haut
-  if (isDismissedByUser && permissionStatus === 'denied') {
+  // Si l'utilisateur a fermé temporairement la modal, afficher un bandeau discret en haut
+  if (isDismissedByUser) {
     return (
-      <div className="fixed top-14 left-3 right-3 z-[600] max-w-md mx-auto pointer-events-auto">
-        <div className="bg-rose-950/90 backdrop-blur-md border border-rose-500/60 rounded-2xl p-2.5 flex items-center justify-between gap-2 shadow-2xl animate-in slide-in-from-top-2">
+      <div className="fixed top-14 left-3 right-3 z-[2500] max-w-md mx-auto pointer-events-auto">
+        <div className="bg-amber-950/90 backdrop-blur-md border border-amber-500/60 rounded-2xl p-2.5 flex items-center justify-between gap-2 shadow-2xl animate-in slide-in-from-top-2">
           <div className="flex items-center gap-2 min-w-0">
-            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-            <span className="text-[11px] font-medium text-rose-200 truncate">
-              {t.locPermissionDeniedTitle}
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="text-[11px] font-medium text-amber-200 truncate">
+              {error ? error.message : t.locPermissionRequiredTitle}
             </span>
           </div>
-          <button
-            onClick={() => setIsDismissedByUser(false)}
-            className="px-2.5 py-1 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-[11px] shrink-0"
-          >
-            {t.locAuthorizeBtn}
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => onRequestLocation()}
+              className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px]"
+            >
+              {t.locAuthorizeBtn}
+            </button>
+            <button
+              onClick={() => setIsDismissedByUser(false)}
+              className="p-1 rounded-xl bg-slate-800 text-slate-400 hover:text-white text-xs"
+              title="Agrandir"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -68,10 +76,31 @@ export const LocationPermissionModal: React.FC<LocationPermissionModalProps> = (
   }
 
   const isDenied = permissionStatus === 'denied' || (error && error.code === 1);
+  const isUnavailable = error && error.code === 2;
+
+  // Ouvrir les réglages Android si Cordova Diagnostic est présent
+  const handleOpenSettings = () => {
+    const cordova = (window as any).cordova;
+    if (cordova?.plugins?.diagnostic?.switchToSettings) {
+      cordova.plugins.diagnostic.switchToSettings();
+    } else {
+      onRequestLocation();
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-[1200] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative w-full max-w-md bg-slate-900 border-2 border-amber-500/60 rounded-3xl shadow-2xl p-5 sm:p-6 overflow-hidden text-center">
+        {/* Bouton Fermer / Ignorer en haut à droite pour ne jamais bloquer l'utilisateur */}
+        <button
+          onClick={() => setIsDismissedByUser(true)}
+          type="button"
+          aria-label="Fermer"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
         {/* Halo décoratif */}
         <div className="absolute -top-12 -left-12 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-rose-500/10 rounded-full blur-2xl pointer-events-none" />
@@ -104,68 +133,69 @@ export const LocationPermissionModal: React.FC<LocationPermissionModalProps> = (
             : t.locPermissionRequiredDesc}
         </p>
 
-        {/* Instructions détaillées si refusé / bloqué */}
+        {/* Message d'erreur spécifique éventuel avec aide Android */}
+        {error && (
+          <div className="mt-3 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-start space-y-1.5">
+            <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                {error.code === 3
+                  ? t.locErrorTimeout
+                  : error.code === 2
+                  ? t.locErrorUnavailable
+                  : error.message}
+              </span>
+            </div>
+
+            {/* Conseils spécifiques pour Android */}
+            {isUnavailable && (
+              <div className="text-[11px] text-slate-300 space-y-1 pt-1 border-t border-amber-500/20 leading-relaxed">
+                <p className="font-semibold text-amber-300">
+                  Sur votre smartphone Android :
+                </p>
+                <ul className="list-disc pl-4 space-y-0.5 text-slate-300">
+                  <li>
+                    Déroulez le volet du haut et vérifiez que l'icône <strong>Position / Localisation (GPS)</strong> est allumée.
+                  </li>
+                  <li>
+                    Si l'application APK vient d'être installée, la nouvelle version compile les autorisations GPS requises.
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Instructions détaillées si refusé dans le navigateur */}
         {isDenied && (
-          <div className="mt-4 p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-start space-y-2.5">
+          <div className="mt-3.5 p-3 rounded-2xl bg-slate-950/70 border border-slate-800 text-start space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
               <Smartphone className="w-4 h-4" />
-              <span>Instructions de déblocage rapide :</span>
+              <span>Instructions pour autoriser le GPS :</span>
             </div>
 
-            <div className="text-[11px] text-slate-300 space-y-1.5 leading-normal">
-              <p className="flex items-start gap-1.5">
-                <span className="w-4 h-4 rounded-full bg-slate-800 text-amber-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
-                  1
-                </span>
-                <span>
-                  Touchez l'icône de <strong>cadenas</strong> ou <strong>paramètres du site</strong> située à gauche dans la barre d'adresse du navigateur.
-                </span>
+            <div className="text-[11px] text-slate-300 space-y-1 leading-normal">
+              <p>
+                1. Dans <strong>Paramètres de votre téléphone &gt; Applications &gt; arreva (ou Geoarriva)</strong>.
               </p>
-
-              <p className="flex items-start gap-1.5">
-                <span className="w-4 h-4 rounded-full bg-slate-800 text-amber-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
-                  2
-                </span>
-                <span>
-                  Appuyez sur <strong>Autorisations</strong> puis activez <strong>Localisation</strong> (Autoriser).
-                </span>
-              </p>
-
-              <p className="flex items-start gap-1.5">
-                <span className="w-4 h-4 rounded-full bg-slate-800 text-amber-400 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">
-                  3
-                </span>
-                <span>
-                  Revenez ici et appuyez sur le bouton <strong>"{t.locRetryBtn}"</strong> ci-dessous.
-                </span>
+              <p>
+                2. Touchez <strong>Autorisations &gt; Localisation</strong> et cochez <strong>Toujours autoriser</strong> ou <strong>Lorsque l'appli est en cours d'utilisation</strong>.
               </p>
             </div>
           </div>
         )}
 
-        {/* Message d'erreur spécifique éventuel */}
-        {error && error.code !== 1 && (
-          <div className="mt-3 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-amber-300">
-            {error.code === 3
-              ? t.locErrorTimeout
-              : error.code === 2
-              ? t.locErrorUnavailable
-              : error.message}
-          </div>
-        )}
-
-        {/* Bouton d'action principal */}
-        <div className="mt-5 space-y-2">
+        {/* Actions principales */}
+        <div className="mt-5 space-y-2.5">
           <button
-            onClick={onRequestLocation}
-            disabled={isLoading}
+            onClick={() => onRequestLocation()}
             type="button"
-            className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 font-black text-sm shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+            className="w-full py-3.5 px-4 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 font-black text-sm shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
           >
             {isLoading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
-                <span>{t.locAcquiringPosition}</span>
+                <span>Détection de votre position...</span>
               </>
             ) : (
               <>
@@ -175,16 +205,15 @@ export const LocationPermissionModal: React.FC<LocationPermissionModalProps> = (
             )}
           </button>
 
-          {/* Option pour explorer la carte tout de même */}
-          {isDenied && (
-            <button
-              onClick={() => setIsDismissedByUser(true)}
-              type="button"
-              className="text-xs text-slate-400 hover:text-slate-200 underline underline-offset-2 py-1 transition-colors"
-            >
-              Continuer sans GPS automatique (mode consultation)
-            </button>
-          )}
+          {/* Bouton pour continuer vers la carte sans être bloqué */}
+          <button
+            onClick={() => setIsDismissedByUser(true)}
+            type="button"
+            className="w-full py-2.5 px-3 rounded-2xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-2 border border-slate-700"
+          >
+            <span>Accéder à la carte &amp; Trajets</span>
+            <ArrowRight className="w-3.5 h-3.5 text-amber-400" />
+          </button>
         </div>
       </div>
     </div>

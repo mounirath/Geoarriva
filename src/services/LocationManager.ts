@@ -46,8 +46,43 @@ class LocationManagerService {
   constructor() {
     // Initialisation automatique au chargement
     if (typeof window !== 'undefined') {
+      if (typeof document !== 'undefined') {
+        document.addEventListener('deviceready', async () => {
+          await this.requestCordovaPermissions();
+          this.requestLocation(false).catch(() => {});
+        });
+      }
       this.init();
     }
+  }
+
+  /**
+   * Demande les permissions Android natives si l'application s'exécute sous Cordova
+   */
+  public async requestCordovaPermissions(): Promise<boolean> {
+    if (typeof window === 'undefined') return true;
+    const cordova = (window as any).cordova;
+    if (cordova && cordova.plugins && cordova.plugins.permissions) {
+      const p = cordova.plugins.permissions;
+      return new Promise((resolve) => {
+        p.checkPermission(
+          p.ACCESS_FINE_LOCATION,
+          (status: any) => {
+            if (status && status.hasPermission) {
+              resolve(true);
+            } else {
+              p.requestPermissions(
+                [p.ACCESS_FINE_LOCATION, p.ACCESS_COARSE_LOCATION],
+                (res: any) => resolve(res && res.hasPermission),
+                () => resolve(false)
+              );
+            }
+          },
+          () => resolve(false)
+        );
+      });
+    }
+    return true;
   }
 
   /**
@@ -119,7 +154,15 @@ class LocationManagerService {
   /**
    * Demande la localisation avec l'API native navigator.geolocation.getCurrentPosition
    */
-  public requestLocation(isFirstStartup: boolean = false): Promise<LocationData> {
+  public async requestLocation(isFirstStartup: boolean = false): Promise<LocationData> {
+    if (typeof window !== 'undefined' && (window as any).cordova) {
+      try {
+        await this.requestCordovaPermissions();
+      } catch (e) {
+        // ignore
+      }
+    }
+
     return new Promise((resolve, reject) => {
       if (!('geolocation' in navigator)) {
         const err: LocationError = {
@@ -173,11 +216,48 @@ class LocationManagerService {
               friendlyMessage = 'Accès à la position refusé par l\'utilisateur ou le navigateur.';
               break;
             case error.POSITION_UNAVAILABLE:
-              friendlyMessage = 'Signal GPS indisponible ou trop faible.';
+              friendlyMessage = 'Signal GPS direct indisponible. Tentative réseau standard...';
               break;
             case error.TIMEOUT:
-              friendlyMessage = 'Délai d\'acquisition du signal GPS dépassé.';
+              friendlyMessage = 'Délai GPS haute précision dépassé. Tentative réseau standard...';
               break;
+          }
+
+          // Si TIMEOUT ou POSITION_UNAVAILABLE, tenter immédiatement via la géolocalisation native standard (Wi-Fi / borne)
+          if ((error.code === 2 || error.code === 3) && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (posFallback) => {
+                this.isAcquiring = false;
+                const locData: LocationData = {
+                  coords: {
+                    lat: posFallback.coords.latitude,
+                    lng: posFallback.coords.longitude,
+                  },
+                  accuracy: posFallback.coords.accuracy,
+                  speed: posFallback.coords.speed,
+                  heading: posFallback.coords.heading,
+                  timestamp: posFallback.timestamp,
+                };
+
+                this.currentLocation = locData;
+                this.updateStatus('granted');
+                this.updateError(null);
+                this.notifyLocation(locData);
+                resolve(locData);
+              },
+              (fallbackErr) => {
+                this.isAcquiring = false;
+                const locErr: LocationError = {
+                  code: fallbackErr.code,
+                  message: 'Position GPS temporairement indisponible.',
+                };
+                this.updateStatus(status);
+                this.updateError(locErr);
+                reject(locErr);
+              },
+              { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
+            );
+            return;
           }
 
           const locErr: LocationError = {

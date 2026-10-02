@@ -1,24 +1,22 @@
-name: Build Android APK (Cordova)
+name: Release Android APK (GitHub Releases)
 
 on:
   push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
-      build_type:
-        description: 'Type de build (debug ou release)'
+      version_tag:
+        description: 'Version du tag (ex: v1.0.0)'
         required: true
-        default: 'debug'
-        type: choice
-        options:
-          - debug
-          - release
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
 
 jobs:
-  build-apk:
-    name: Build Android APK
+  release:
+    name: Build & Publish Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -52,58 +50,46 @@ jobs:
       - name: Install Cordova CLI
         run: npm install -g cordova
 
-      - name: Create Cordova Project & Configure Android
+      - name: Build Android APK with Cordova
         run: |
-          # Création du projet Cordova propre
           cordova create temp-app com.arreva.app "arreva"
           cd temp-app
           
-          # Nettoyage et copie des fichiers de production web
           rm -rf www/*
           cp -r ../dist/* www/
           
-          # Ajout des plugins nécessaires
+          # Plugin AdMob avec l'identifiant AdMob
           cordova plugin add cordova-plugin-admob-free --variable ADMOB_APP_ID="ca-app-pub-1050422776945344~6855047295"
           cordova plugin add cordova-plugin-androidx-adapter
           cordova plugin add cordova-plugin-geolocation
           cordova plugin add cordova-plugin-android-permissions
           
-          # Acceptation des licences Android SDK
           yes | sdkmanager --licenses || true
           
-          # Ajout de la plateforme Android
           cordova platform add android
 
-          # Garantie que les permissions GPS sont inscrites dans le Manifest Android
           MANIFEST="platforms/android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" android:required="true" />' "$MANIFEST"
           fi
+
+          cordova build android --debug
           
-          # Compilation de l'APK
-          if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
-            cordova build android --release
-          else
-            cordova build android --debug
-          fi
+          mkdir -p ../release-output
+          cp platforms/android/app/build/outputs/apk/debug/app-debug.apk ../release-output/arreva-${{ github.event.inputs.version_tag || github.ref_name }}.apk
 
-      - name: Find and Prepare APK Output
-        id: find_apk
-        run: |
-          mkdir -p output-apk
-          APK_FILE=$(find temp-app/platforms/android/app/build/outputs/apk/ -name "*.apk" | head -n 1)
-          if [ -f "$APK_FILE" ]; then
-            cp "$APK_FILE" output-apk/arreva-app.apk
-            echo "apk_path=output-apk/arreva-app.apk" >> $GITHUB_OUTPUT
-            echo "APK found: $APK_FILE"
-          else
-            echo "APK not found!"
-            exit 1
-          fi
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release and Upload APK
+        uses: softprops/action-gh-release@v2
         with:
-          name: arreva-android-apk
-          path: output-apk/arreva-app.apk
-          retention-days: 14
+          tag_name: ${{ github.event.inputs.version_tag || github.ref_name }}
+          name: "arreva ${{ github.event.inputs.version_tag || github.ref_name }}"
+          body: |
+            ### 📱 Application mobile Android arreva
+            - **Alerte GPS d'arrivée** pour les transports en commun (train, bus, métro, RER, TGV).
+            - **Intégration Google AdMob** (App Open Ad).
+            - Support multilingue (Français, Anglais, Arabe) & agrandissement de texte.
+            
+            Téléchargez le fichier `.apk` ci-dessous et installez-le sur votre smartphone Android.
+          files: release-output/*.apk
+          draft: false
+          prerelease: false

@@ -116,8 +116,8 @@ export default function App() {
   });
   const [isAdSettingsOpen, setIsAdSettingsOpen] = useState<boolean>(false);
 
-  // Annonce à l'ouverture (App Open Ad) : superposée à l'écran de chargement au lancement
-  const [isAppOpenAdVisible, setIsAppOpenAdVisible] = useState<boolean>(true);
+  // Annonce à l'ouverture (App Open Ad) : déclenchée lors de la reprise (resume) ou test manuel
+  const [isAppOpenAdVisible, setIsAppOpenAdVisible] = useState<boolean>(false);
 
   // États de destination et alerte
   const [destination, setDestination] = useState<Coordinates | null>(null);
