@@ -44,8 +44,8 @@ jobs:
           rm -rf www/*
           cp -r ../dist/* www/
           
-          # Installation du plugin Unity Ads via son dépôt Git officiel
-          cordova plugin add https://github.com/unity-technologies/unity-ads-cordova.git --variable GAME_ID="800387003"
+          # Utilisation du plugin Cordova Unity Ads via npm
+          cordova plugin add cordova-plugin-unityads --variable GAME_ID="800387003"
           cordova plugin add cordova-plugin-androidx-adapter
           
           # Plugin Geolocation officiel pour activer l'accès GPS natif dans AndroidManifest
