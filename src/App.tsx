@@ -1,4 +1,29 @@
-/**
+// Intercepte toutes les erreurs fatales qui provoquent l'écran noir
+window.onerror = function (message, source, lineno, colno, error) {
+  const errorBox = document.createElement('div');
+  errorBox.style.position = 'fixed';
+  errorBox.style.top = '0';
+  errorBox.style.left = '0';
+  errorBox.style.width = '100vw';
+  errorBox.style.height = '100vh';
+  errorBox.style.backgroundColor = '#111';
+  errorBox.style.color = '#ff4444';
+  errorBox.style.padding = '20px';
+  errorBox.style.zIndex = '999999';
+  errorBox.style.overflow = 'auto';
+  errorBox.style.fontFamily = 'monospace';
+  errorBox.style.fontSize = '13px';
+  
+  errorBox.innerHTML = `
+    <h2 style="color:white; margin-bottom:10px;">🚨 Erreur de l'application :</h2>
+    <p><b>Message :</b> ${message}</p>
+    <p><b>Fichier :</b> ${source} (Ligne ${lineno}:${colno})</p>
+    <p><b>Détails :</b> ${error && error.stack ? error.stack : 'Aucune trace disponible'}</p>
+  `;
+  document.body.appendChild(errorBox);
+  return true;
+};
+**
  * arreva - Application d'alerte et réveil GPS pour les transports
  * Support Google Maps Platform & OpenStreetMap
  * Support Multilingue (Français, Anglais, Arabe), Agrandissement de texte & Unity Ads
