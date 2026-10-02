@@ -1,11 +1,10 @@
 /**
  * arreva - Application d'alerte et réveil GPS pour les transports
  * Support Google Maps Platform & OpenStreetMap
- * Support Multilingue (Français, Anglais, Arabe), Agrandissement de texte & AdMob
- * AdMob Annonce à l'ouverture (App Open Ad) : ca-app-pub-1050422776945344/8752251197
+ * Support Multilingue (Français, Anglais, Arabe), Agrandissement de texte & Unity Ads
+ * Unity Ads Game ID : 800387003
  * Service LocationManager : Forçage de la demande de localisation GPS native au démarrage
  */
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Compass,
@@ -19,6 +18,72 @@ import {
   Loader2,
   CheckCircle2,
 } from 'lucide-react';
+
+import { unityAdsService } from './services/UnityAdsService';
+import { APIProvider } from '@vis.gl/react-google-maps';
+import { coordinates, calculateHaversineDistance } from './utils/geo';
+import { alertSystem, SOUND_OPTIONS } from './utils/audioAlert';
+import { GoogleMapComponent } from './components/GoogleMapComponent';
+import { MapComponent } from './components/MapComponent';
+import { SearchBar } from './components/SearchBar';
+import { TrackingHUD } from './components/TrackingHUD';
+import { AlertModal } from './components/AlertModal';
+import { SoundSettingsModal } from './components/SoundSettingsModal';
+import { FavoritesModal } from './components/FavoritesModal';
+import { AdBanner } from './components/AdBanner';
+import { AdSettingsModal } from './components/AdSettingsModal';
+import { AppOpenAdModal } from './components/AppOpenAdModal';
+import { LocationPermissionModal } from './components/LocationPermissionModal';
+import { GpsDetailsModal } from './components/GpsDetailsModal';
+import { useLocationManager } from './hooks/useLocationManager';
+import { admobService, ADMOB_DEFAULTS } from './services/AdMobService'; // Vous pourrez le supprimer si vous n'utilisez plus AdMob
+import { Language, TextSize, translations } from './utils/i18n';
+
+const GOOGLE_MAPS_API_KEY =
+  (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY ||
+  'AIzaSyCezWw2xK5...'; // Votre clé
+
+const INITIAL_FAVORITES = [
+  { id: '1', name: 'Gare de Lyon, Paris', lat: 48.8443, lng: 2.3744 },
+  { id: '2', name: 'Gare Montparnasse, Paris', lat: 48.8412, lng: 2.3205 },
+  { id: '3', name: "Aéroport CDG Terminal 2", lat: 49.0097, lng: 2.5479 },
+  { id: '4', name: 'La Défense - Grande Arche', lat: 48.8924, lng: 2.2361 },
+  { id: '5', name: 'Gare Saint-Lazare, Paris', lat: 48.8768, lng: 2.3252 },
+];
+
+export default function App() {
+  // Initialisation de Unity Ads au chargement de l'application
+  useEffect(() => {
+    unityAdsService.initialize('800387003', true); // true = mode test, false = production
+  }, []);
+
+  // Service hook de localisation GPS native
+  const {
+    location,
+    accuracy,
+    speed,
+    currentSpeed,
+    permissionStatus,
+    isLocating,
+    gpsError,
+  } = useLocationManager();
+
+  // ... le reste de votre logique d'application existante ...
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-white flex flex-col">
+      {/* Votre interface principale */}
+      <div className="p-4 text-center">
+        <h1 className="text-xl font-bold">Arreva - Transport GPS</h1>
+        <p className="text-xs text-indigo-400">Unity Ads configuré (ID: 800387003)</p>
+      </div>
+    </div>
+  );
+}
+
+
+export default App;
+
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Coordinates, calculateHaversineDistance } from './utils/geo';
 import { alertSystem, SoundType, SOUND_OPTIONS } from './utils/audioAlert';
