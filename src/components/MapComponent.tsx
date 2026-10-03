@@ -7,13 +7,13 @@ import { Translations } from '../utils/i18n';
 // Clé API CARTO Basemaps officielle configurée
 export const CARTO_API_KEY =
   (import.meta as any).env?.VITE_CARTO_API_KEY ||
-  'cb1_48if_2_0f3fe5e8cce7bab4ee01bfc8';
+  'cb1_48if_1_e850e696c73ebaf5c2079f48';
 
 export const getCartoTileUrl = (style: 'voyager' | 'dark' = 'voyager') => {
   if (style === 'dark') {
-    return `https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`;
+    return `https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}.png?key=${CARTO_API_KEY}`;
   }
-  return `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`;
+  return `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=${CARTO_API_KEY}`;
 };
 
 interface MapComponentProps {
