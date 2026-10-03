@@ -191,30 +191,6 @@ export default function App() {
     }
   }, [userLocation, userAccuracy, lang, isSimulating]);
 
-  // Détection du retour en premier plan pour déclencher l'interstitiel Unity Ads si cooldown dépassé
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        if (unityAdsService.canShowInterstitial()) {
-          unityAdsService.showInterstitial();
-        }
-      }
-    };
-
-    const handleCordovaResume = () => {
-      if (unityAdsService.canShowInterstitial()) {
-        unityAdsService.showInterstitial();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    document.addEventListener('resume', handleCordovaResume);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      document.removeEventListener('resume', handleCordovaResume);
-    };
-  }, []);
-
   // Position effective utilisée pour le calcul de distance (réelle ou simulée)
   const effectiveLocation = isSimulating ? simulatedLocation : userLocation;
   const effectiveSpeed = isSimulating ? simulatedSpeed : currentSpeed;
@@ -695,6 +671,43 @@ export default function App() {
             onShowInterstitial={() => unityAdsService.showInterstitial(true)}
           />
         </div>
+
+        {/* Bandeau d'autorisation GPS direct si la position n'est pas encore accordée */}
+        {!isRealGps && !isSimulating && (
+          <div className="absolute top-36 sm:top-36 left-3 right-3 sm:left-4 sm:right-4 z-[550] max-w-md mx-auto pointer-events-auto">
+            <div className="bg-slate-900/95 border border-amber-500/50 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2.5 shadow-2xl animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <Locate className="w-4 h-4 text-amber-400 animate-pulse" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>Autoriser la localisation GPS</span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                  </div>
+                  <div className="text-[11px] text-slate-300 truncate">
+                    Nécessaire pour calculer votre distance et déclencher l'alerte
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  requestLocation().catch(() => {});
+                }}
+                disabled={isGpsLoading}
+                type="button"
+                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 text-xs font-bold shadow-md transition-all active:scale-95 shrink-0 flex items-center gap-1 disabled:opacity-50"
+              >
+                {isGpsLoading ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                )}
+                <span>{isGpsLoading ? 'Recherche...' : 'Autoriser'}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Toast de confirmation de position GPS au démarrage */}
         {gpsNotification && (
