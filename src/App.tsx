@@ -36,6 +36,7 @@ import { AppOpenAdModal } from './components/AppOpenAdModal';
 import { LocationPermissionModal } from './components/LocationPermissionModal';
 import { GpsDetailsModal } from './components/GpsDetailsModal';
 import { AppLogo } from './components/AppLogo';
+import { NavigationDrawer } from './components/NavigationDrawer';
 import { useLocationManager } from './hooks/useLocationManager';
 import { unityAdsService, UNITY_DEFAULTS } from './services/UnityAdsService';
 import { Language, TextSize, TRANSLATIONS } from './utils/i18n';
@@ -158,6 +159,8 @@ export default function App() {
   });
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState<boolean>(false);
   const [isGpsDetailsOpen, setIsGpsDetailsOpen] = useState<boolean>(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const hamburgerButtonRef = useRef<HTMLButtonElement>(null);
   const [gpsNotification, setGpsNotification] = useState<{ message: string; type: 'loading' | 'success' } | null>(null);
 
   // Mode simulation pour démonstration et tests
@@ -499,10 +502,40 @@ export default function App() {
 
         {/* Top Bar épurée (1 row, 3 zones) */}
         <header className="absolute top-0 left-0 right-0 z-[500] h-14 px-3 sm:px-4 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between pointer-events-auto">
-          {/* Zone 1: Marque & Indicateur d'état GPS réel */}
-          <div className="flex items-center gap-2.5">
+          {/* Zone 1: Hamburger Menu, Marque & Indicateur d'état GPS réel */}
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* Bouton Hamburger accessible avec 3 lignes empilées */}
+            <button
+              ref={hamburgerButtonRef}
+              type="button"
+              aria-expanded={isDrawerOpen}
+              aria-controls="navigation-drawer"
+              aria-label={isDrawerOpen ? t.closeMenu : t.openMenu}
+              onClick={() => setIsDrawerOpen((prev) => !prev)}
+              className="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 active:bg-slate-800 border border-slate-700/70 text-slate-200 hover:text-white flex items-center justify-center transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+            >
+              {/* Trois lignes empilées (hamburger) animées */}
+              <div className="w-5 h-3.5 flex flex-col justify-between" aria-hidden="true">
+                <span
+                  className={`h-0.5 w-full bg-current rounded-full transition-all duration-300 origin-left ${
+                    isDrawerOpen ? 'rotate-45 translate-x-0.5 -translate-y-0.5' : ''
+                  }`}
+                />
+                <span
+                  className={`h-0.5 w-full bg-current rounded-full transition-opacity duration-200 ${
+                    isDrawerOpen ? 'opacity-0' : 'opacity-100'
+                  }`}
+                />
+                <span
+                  className={`h-0.5 w-full bg-current rounded-full transition-all duration-300 origin-left ${
+                    isDrawerOpen ? '-rotate-45 translate-x-0.5 translate-y-0.5' : ''
+                  }`}
+                />
+              </div>
+            </button>
+
             <AppLogo className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl shadow-lg shadow-amber-500/25 shrink-0 hover:scale-105 transition-transform" />
-            <span className="text-base font-bold tracking-tight text-white">
+            <span className="text-base font-bold tracking-tight text-white hidden xs:inline sm:inline">
               {t.appName}
             </span>
 
@@ -836,6 +869,32 @@ export default function App() {
           }}
           t={t}
           lang={lang}
+        />
+
+        {/* Navigation Drawer (tiroir off-canvas coulissant depuis la gauche avec scrim) */}
+        <NavigationDrawer
+          isOpen={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          triggerRef={hamburgerButtonRef}
+          t={t}
+          lang={lang}
+          onSelectLang={setLang}
+          textSize={textSize}
+          onCycleTextSize={cycleTextSize}
+          textSizeLabel={textSizeLabel}
+          textSizeBadge={textSizeBadge}
+          mapEngine={mapEngine}
+          onToggleMapEngine={() =>
+            setMapEngine((prev) => (prev === 'google' ? 'leaflet' : 'google'))
+          }
+          onOpenSoundModal={() => setIsSoundModalOpen(true)}
+          onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
+          onOpenGpsDetails={() => setIsGpsDetailsOpen(true)}
+          onOpenAdSettings={() => setIsAdSettingsOpen(true)}
+          isRealGps={isRealGps}
+          isGpsLoading={isGpsLoading}
+          isSimulating={isSimulating}
+          onToggleSimulation={() => setIsSimulating((prev) => !prev)}
         />
       </div>
     </APIProvider>

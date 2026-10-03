@@ -112,6 +112,12 @@ export interface Translations {
   adMobAppOpenBadge: string;
   continueToApp: string;
   testAppOpenAd: string;
+  menu: string;
+  openMenu: string;
+  closeMenu: string;
+  navigation: string;
+  aboutApp: string;
+  gpsDiagnostic: string;
 }
 
 export const TRANSLATIONS: Record<Language, Translations> = {
@@ -221,6 +227,12 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     adMobAppOpenBadge: 'AdMob · Annonce à l’ouverture',
     continueToApp: 'Accéder à arreva',
     testAppOpenAd: "Tester l'annonce à l'ouverture",
+    menu: 'Menu',
+    openMenu: 'Ouvrir le menu de navigation',
+    closeMenu: 'Fermer le menu de navigation',
+    navigation: 'Navigation & Trajets',
+    aboutApp: 'À propos de l’application',
+    gpsDiagnostic: 'Diagnostic & Signal GPS',
   },
   en: {
     appName: 'arreva',
@@ -328,6 +340,12 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     adMobAppOpenBadge: 'AdMob · App Open Ad',
     continueToApp: 'Continue to arreva',
     testAppOpenAd: 'Test App Open Ad',
+    menu: 'Menu',
+    openMenu: 'Open navigation menu',
+    closeMenu: 'Close navigation menu',
+    navigation: 'Navigation & Trips',
+    aboutApp: 'About the application',
+    gpsDiagnostic: 'GPS Status & Signal Diagnostic',
   },
   ar: {
     appName: 'أريفا - arreva',
@@ -435,5 +453,11 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     adMobAppOpenBadge: 'AdMob · إعلان عند الفتح',
     continueToApp: 'متابعة إلى أريفا',
     testAppOpenAd: 'تجربة إعلان الفتح',
+    menu: 'القائمة',
+    openMenu: 'فتح قائمة التنقل',
+    closeMenu: 'إغلاق قائمة التنقل',
+    navigation: 'التنقل والمسارات',
+    aboutApp: 'حول التطبيق',
+    gpsDiagnostic: 'تشخيص وحالة إشارة GPS',
   },
 };
