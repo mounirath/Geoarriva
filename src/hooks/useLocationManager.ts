@@ -64,7 +64,7 @@ export function useLocationManager(): UseLocationManagerReturn {
   const requestLocation = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await locationManager.requestLocation(false);
+      const data = await locationManager.requestLocation();
       setLocationData(data);
       setIsLoading(false);
       return data;

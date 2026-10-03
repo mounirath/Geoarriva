@@ -90,6 +90,15 @@ export const AdSettingsModal: React.FC<UnitySettingsModalProps> = ({
 
         {/* Formulaire de configuration */}
         <form onSubmit={handleSubmit} className="py-4 space-y-3.5">
+          {/* Badge officiel de synchronisation Unity Cloud */}
+          <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-3 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-semibold text-emerald-300">Arreva · Unity Ads</span>
+            </div>
+            <span className="font-mono text-[10px] text-slate-400">Org: 11270132357134</span>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
               Unity Game ID

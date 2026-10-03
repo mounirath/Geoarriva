@@ -1,0 +1,30 @@
+{
+  "short_name": "arreva",
+  "name": "arreva - Alerte Arrivée GPS",
+  "description": "Alerte sonore et vibration à l'approche de votre destination en train, métro, bus ou voiture grâce au GPS.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#020617",
+  "theme_color": "#F6961E",
+  "display": "standalone",
+  "orientation": "portrait"
+}

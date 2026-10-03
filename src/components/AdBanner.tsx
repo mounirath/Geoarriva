@@ -1,91 +1,74 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Megaphone, X, Settings2, Sparkles, ExternalLink } from 'lucide-react';
 import { Translations } from '../utils/i18n';
-
-declare global {
-  interface Window {
-    adsbygoogle?: any[];
-  }
-}
+import { unityAdsService, UNITY_DEFAULTS } from '../services/UnityAdsService';
 
 interface AdBannerProps {
-  clientId?: string;
-  slotId?: string;
+  gameId?: string;
+  placementId?: string;
   t: Translations;
   onOpenSettings: () => void;
+  onShowInterstitial?: () => void;
 }
 
 export const AdBanner: React.FC<AdBannerProps> = ({
-  clientId,
-  slotId,
+  gameId = UNITY_DEFAULTS.GAME_ID,
+  placementId = UNITY_DEFAULTS.BANNER_PLACEMENT,
   t,
   onOpenSettings,
+  onShowInterstitial,
 }) => {
   const [isDismissed, setIsDismissed] = useState(false);
-  const [adLoaded, setAdLoaded] = useState(false);
-  const adRef = useRef<HTMLModElement | null>(null);
 
   useEffect(() => {
-    if (clientId && slotId && !isDismissed) {
-      try {
-        if (typeof window !== 'undefined') {
-          (window.adsbygoogle = window.adsbygoogle || []).push({});
-          setAdLoaded(true);
-        }
-      } catch (err) {
-        console.warn('AdMob/AdSense script error:', err);
-      }
+    if (!isDismissed) {
+      unityAdsService.showBanner('BOTTOM');
     }
-  }, [clientId, slotId, isDismissed]);
+    return () => {
+      unityAdsService.hideBanner();
+    };
+  }, [isDismissed, placementId]);
 
   if (isDismissed) return null;
 
   return (
-    <div className="w-full max-w-sm mx-auto my-1.5 px-3 pointer-events-auto">
-      <div className="relative rounded-2xl bg-slate-900/90 backdrop-blur-md border border-slate-800/90 shadow-lg overflow-hidden py-1.5 px-3 flex items-center justify-between gap-2.5">
-        {/* Badge Publicité */}
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center shrink-0">
-            <Megaphone className="w-3.5 h-3.5 text-amber-400" />
+    <div className="w-full max-w-sm mx-auto my-1.5 px-3 pointer-events-auto select-none">
+      <div className="relative rounded-2xl bg-slate-900/95 backdrop-blur-md border border-indigo-500/30 shadow-xl overflow-hidden py-2 px-3 flex items-center justify-between gap-2.5 transition-all">
+        {/* Badge & Contenu de la bannière Unity Ads */}
+        <div
+          onClick={onShowInterstitial}
+          className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group"
+          title="Cliquez pour tester l'annonce Unity Ads"
+        >
+          <div className="w-7 h-7 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+            <Megaphone className="w-4 h-4 text-indigo-400" />
           </div>
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
-                {t.advertisement}
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400">
+                Unity Ads
               </span>
-              <span className="text-[9px] text-slate-400 font-mono">
-                AdMob 320x50
+              <span className="text-[9px] text-slate-400 font-mono truncate max-w-[120px]">
+                {placementId}
               </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
             </div>
 
-            {/* Contenu de la bannière ou annonce réelle */}
-            {clientId && slotId ? (
-              <div className="overflow-hidden max-h-[50px] max-w-[320px] flex items-center justify-center">
-                <ins
-                  ref={adRef}
-                  className="adsbygoogle"
-                  style={{ display: 'inline-block', width: '320px', height: '50px' }}
-                  data-ad-client={clientId}
-                  data-ad-slot={slotId}
-                  data-ad-format="horizontal"
-                />
-              </div>
-            ) : (
-              <div className="text-[11px] text-slate-300 truncate">
-                <span>Voyagez sereinement avec arreva · GPS Transport</span>
-              </div>
-            )}
+            <div className="text-[11px] font-medium text-slate-200 truncate flex items-center gap-1">
+              <span>arreva · Alerte et Réveil GPS Transport</span>
+              <ExternalLink className="w-2.5 h-2.5 text-slate-400 shrink-0 opacity-70" />
+            </div>
           </div>
         </div>
 
-        {/* Boutons d'actions (Paramètres & Fermer) */}
+        {/* Boutons d'actions (Paramètres Unity Ads & Fermer) */}
         <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={onOpenSettings}
             type="button"
-            className="w-6 h-6 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
-            title={t.admobTitle}
+            className="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+            title="Paramètres Unity Ads"
           >
             <Settings2 className="w-3.5 h-3.5" />
           </button>
@@ -93,7 +76,7 @@ export const AdBanner: React.FC<AdBannerProps> = ({
           <button
             onClick={() => setIsDismissed(true)}
             type="button"
-            className="w-6 h-6 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+            className="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
             title={t.closeAd}
           >
             <X className="w-3.5 h-3.5" />

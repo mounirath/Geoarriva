@@ -43,6 +43,9 @@ class LocationManagerService {
   private errorListeners: Set<ErrorListener> = new Set();
   private initialized: boolean = false;
 
+  private passiveWatchId: number | null = null;
+  private retryTimeoutId: any = null;
+
   constructor() {
     // Restauration de la dernière position connue pour affichage instantané au démarrage
     if (typeof window !== 'undefined') {
@@ -60,7 +63,7 @@ class LocationManagerService {
       if (typeof document !== 'undefined') {
         document.addEventListener('deviceready', async () => {
           await this.requestCordovaPermissions();
-          this.requestLocation(false).catch(() => {});
+          this.requestLocation().catch(() => {});
         });
       }
       this.init();
@@ -97,6 +100,52 @@ class LocationManagerService {
   }
 
   /**
+   * Démarre une surveillance passive permanente en arrière-plan
+   */
+  public startPassiveWatcher(): void {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) return;
+    if (this.passiveWatchId !== null) return;
+
+    try {
+      this.passiveWatchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const locData: LocationData = {
+            coords: {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+            },
+            accuracy: pos.coords.accuracy,
+            speed: pos.coords.speed,
+            heading: pos.coords.heading,
+            timestamp: pos.timestamp,
+          };
+          this.currentLocation = locData;
+          this.isAcquiring = false;
+          this.updateStatus('granted');
+          this.updateError(null);
+          this.notifyLocation(locData);
+        },
+        (err) => {
+          if (err.code === 1) {
+            this.updateStatus('denied');
+            this.updateError({
+              code: 1,
+              message: 'Permission GPS refusée. Veuillez autoriser la localisation.',
+            });
+          }
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 25000,
+          maximumAge: 10000,
+        }
+      );
+    } catch (e) {
+      console.warn('Erreur lors du démarrage du watcher passif:', e);
+    }
+  }
+
+  /**
    * Initialise la vérification de la permission et déclenche la demande au démarrage
    */
   public async init(): Promise<void> {
@@ -112,6 +161,9 @@ class LocationManagerService {
       return;
     }
 
+    // Démarre la surveillance passive permanente
+    this.startPassiveWatcher();
+
     // 1. Vérification via navigator.permissions.query({ name: 'geolocation' })
     if ('permissions' in navigator && typeof navigator.permissions.query === 'function') {
       try {
@@ -119,12 +171,11 @@ class LocationManagerService {
         this.permissionStatusObj = status;
         this.updateStatus(status.state as PermissionState);
 
-        // Écouter les changements en temps réel (ex: l'utilisateur débloque dans les réglages)
         status.onchange = () => {
           const nextState = status.state as PermissionState;
           this.updateStatus(nextState);
           if (nextState === 'granted') {
-            this.requestLocation(false);
+            this.requestLocation().catch(() => {});
           } else if (nextState === 'denied') {
             this.updateError({
               code: 1,
@@ -133,19 +184,16 @@ class LocationManagerService {
           }
         };
 
-        // Si déjà accordé, récupérer immédiatement sans bloquer l'UI
         if (status.state === 'granted') {
-          this.requestLocation(false);
+          this.requestLocation().catch(() => {});
           return;
         }
 
-        // Si en attente ('prompt'), forcer la demande native immédiatement au démarrage
         if (status.state === 'prompt') {
-          this.requestLocation(true);
+          this.requestLocation().catch(() => {});
           return;
         }
 
-        // Si déjà refusé ('denied')
         if (status.state === 'denied') {
           this.updateError({
             code: 1,
@@ -154,18 +202,21 @@ class LocationManagerService {
           return;
         }
       } catch (err) {
-        console.warn('navigator.permissions.query non disponible ou erreur:', err);
+        console.warn('navigator.permissions.query non disponible:', err);
       }
     }
 
-    // 2. Fallback direct : déclencher getCurrentPosition dès le chargement
-    this.requestLocation(true);
+    // 2. Fallback direct : déclencher requestLocation dès le chargement
+    this.requestLocation().catch(() => {});
   }
 
   /**
-   * Demande la localisation avec l'API native navigator.geolocation.getCurrentPosition
+   * Demande la localisation avec stratégie en cascade ultra-résiliente :
+   * 1. Tentative rapide via le fournisseur réseau/cellules (instantané sur mobile)
+   * 2. Affinage haute précision par satellite
+   * 3. Réessai automatique sans bloquer l'interface
    */
-  public async requestLocation(isFirstStartup: boolean = false): Promise<LocationData> {
+  public async requestLocation(): Promise<LocationData> {
     if (typeof window !== 'undefined' && (window as any).cordova) {
       try {
         await this.requestCordovaPermissions();
@@ -178,7 +229,7 @@ class LocationManagerService {
       if (!('geolocation' in navigator)) {
         const err: LocationError = {
           code: -1,
-          message: 'La géolocalisation n\'est pas supportée.',
+          message: 'La géolocalisation n\'est pas supportée sur cet appareil.',
         };
         this.updateStatus('unsupported');
         this.updateError(err);
@@ -187,88 +238,95 @@ class LocationManagerService {
       }
 
       this.isAcquiring = true;
-      this.updateError(null);
+      this.startPassiveWatcher();
 
-      const options: PositionOptions = {
-        enableHighAccuracy: true, // Force l'utilisation du récepteur GPS haute précision
-        timeout: 15000,           // 15 secondes pour capter le signal satellite / borne
-        maximumAge: 0,            // Pas de cache pour garantir une position instantanée
-      };
+      let resolved = false;
 
+      // Niveau 1 : Position réseau / Wi-Fi / antennes (réponse ultra-rapide 50ms sur mobile)
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          this.isAcquiring = false;
+        (fastPosition) => {
           const locData: LocationData = {
             coords: {
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
+              lat: fastPosition.coords.latitude,
+              lng: fastPosition.coords.longitude,
             },
-            accuracy: position.coords.accuracy,
-            speed: position.coords.speed,
-            heading: position.coords.heading,
-            timestamp: position.timestamp,
+            accuracy: fastPosition.coords.accuracy,
+            speed: fastPosition.coords.speed,
+            heading: fastPosition.coords.heading,
+            timestamp: fastPosition.timestamp,
           };
 
           this.currentLocation = locData;
+          this.isAcquiring = false;
           this.updateStatus('granted');
           this.updateError(null);
           this.notifyLocation(locData);
-          resolve(locData);
+
+          if (!resolved) {
+            resolved = true;
+            resolve(locData);
+          }
+        },
+        () => {
+          // Si le cache réseau rapide échoue, le niveau 2 satellite prend le relais
+        },
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 }
+      );
+
+      // Niveau 2 : Position GPS haute précision par satellite
+      navigator.geolocation.getCurrentPosition(
+        (gpsPosition) => {
+          const locData: LocationData = {
+            coords: {
+              lat: gpsPosition.coords.latitude,
+              lng: gpsPosition.coords.longitude,
+            },
+            accuracy: gpsPosition.coords.accuracy,
+            speed: gpsPosition.coords.speed,
+            heading: gpsPosition.coords.heading,
+            timestamp: gpsPosition.timestamp,
+          };
+
+          this.currentLocation = locData;
+          this.isAcquiring = false;
+          this.updateStatus('granted');
+          this.updateError(null);
+          this.notifyLocation(locData);
+
+          if (!resolved) {
+            resolved = true;
+            resolve(locData);
+          }
         },
         (error: GeolocationPositionError) => {
-          this.isAcquiring = false;
+          // Si on a déjà une position via le niveau 1 ou le cache, ne pas afficher d'erreur
+          if (resolved || this.currentLocation) {
+            this.isAcquiring = false;
+            return;
+          }
 
-          let friendlyMessage = 'Erreur lors de la récupération de la position.';
+          this.isAcquiring = false;
+          let friendlyMessage = 'Recherche du signal GPS...';
           let status: PermissionState = this.permissionStatus;
 
           switch (error.code) {
             case error.PERMISSION_DENIED:
               status = 'denied';
-              friendlyMessage = 'Accès à la position refusé par l\'utilisateur ou le navigateur.';
+              friendlyMessage = 'Accès GPS refusé. Veuillez autoriser la localisation.';
               break;
             case error.POSITION_UNAVAILABLE:
-              friendlyMessage = 'Signal GPS direct indisponible. Tentative réseau standard...';
+              friendlyMessage = 'Localisation désactivée sur votre téléphone. Activez le GPS dans les réglages rapides.';
               break;
             case error.TIMEOUT:
-              friendlyMessage = 'Délai GPS haute précision dépassé. Tentative réseau standard...';
+              friendlyMessage = 'Recherche des satellites... Réessai automatique.';
+              // Réessayer automatiquement après 3 secondes
+              if (this.retryTimeoutId) clearTimeout(this.retryTimeoutId);
+              this.retryTimeoutId = setTimeout(() => {
+                if (!this.currentLocation) {
+                  this.requestLocation().catch(() => {});
+                }
+              }, 3000);
               break;
-          }
-
-          // Si TIMEOUT ou POSITION_UNAVAILABLE, tenter immédiatement via la géolocalisation native standard (Wi-Fi / borne)
-          if ((error.code === 2 || error.code === 3) && navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-              (posFallback) => {
-                this.isAcquiring = false;
-                const locData: LocationData = {
-                  coords: {
-                    lat: posFallback.coords.latitude,
-                    lng: posFallback.coords.longitude,
-                  },
-                  accuracy: posFallback.coords.accuracy,
-                  speed: posFallback.coords.speed,
-                  heading: posFallback.coords.heading,
-                  timestamp: posFallback.timestamp,
-                };
-
-                this.currentLocation = locData;
-                this.updateStatus('granted');
-                this.updateError(null);
-                this.notifyLocation(locData);
-                resolve(locData);
-              },
-              (fallbackErr) => {
-                this.isAcquiring = false;
-                const locErr: LocationError = {
-                  code: fallbackErr.code,
-                  message: 'Position GPS temporairement indisponible.',
-                };
-                this.updateStatus(status);
-                this.updateError(locErr);
-                reject(locErr);
-              },
-              { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
-            );
-            return;
           }
 
           const locErr: LocationError = {
@@ -280,7 +338,11 @@ class LocationManagerService {
           this.updateError(locErr);
           reject(locErr);
         },
-        options
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 10000,
+        }
       );
     });
   }

@@ -31,6 +31,8 @@ jobs:
       - name: Build Web Project (Vite)
         env:
           VITE_UNITY_GAME_ID: "800387003"
+          VITE_UNITY_BANNER_PLACEMENT: "BP_Banner_Android"
+          VITE_UNITY_INTERSTITIAL_PLACEMENT: "BP_Interstitial_Android"
         run: bun run build
 
       - name: Install Cordova CLI
@@ -38,17 +40,23 @@ jobs:
 
       - name: Generate Android APK with Cordova
         run: |
-          cordova create temp-app com.geoarriva.app Geoarriva
+          cordova create temp-app com.arreva.app Arreva
           cd temp-app
           
           rm -rf www/*
           cp -r ../dist/* www/
           
-          # Utilisation du plugin Cordova Unity Ads via npm
-          cordova plugin add cordova-plugin-unityads --variable GAME_ID="800387003"
+          # Configuration de l'icône officielle de l'application
+          mkdir -p res
+          cp ../public/icons/icon-512.png res/icon.png
+          sed -i '/<\/widget>/i \    <icon src="res/icon.png" />' config.xml
+          
+          # Plugin Unity Ads pour Cordova Android
+          cordova plugin add https://github.com/emi-indo/emi-indo-cordova-plugin-unityads.git || true
           cordova plugin add cordova-plugin-androidx-adapter
           
-          # Plugin Geolocation officiel pour activer l'accès GPS natif dans AndroidManifest
+          # Plugin Geolocation officiel et Permissions Android pour activer l'accès GPS natif
+          cordova plugin add cordova-plugin-android-permissions
           cordova plugin add cordova-plugin-geolocation
           
           cordova platform add android
@@ -66,6 +74,6 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: geoarriva-debug-apk
+          name: arreva-debug-apk
           path: temp-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14

@@ -1,96 +1,231 @@
-// Service pour gérer Unity Ads avec le SDK officiel Unity
-// Assurez-vous d'avoir installé le package Unity Ads (ex: react-native-unity-ads ou via Cordova/Capacitor selon votre stack)
+/**
+ * UnityAdsService - Service officiel de gestion de Unity Ads pour l'application arreva
+ * 
+ * Identifiants configurés par l'utilisateur :
+ * - Game ID : 800387003
+ * - Placement Bannière : BP_Banner_Android
+ * - Placement Interstitiel : BP_Interstitial_Android
+ */
 
 export const UNITY_DEFAULTS = {
   GAME_ID: '800387003',
+  ORGANIZATION_CORE_ID: '11270132357134',
   BANNER_PLACEMENT: 'BP_Banner_Android',
   INTERSTITIAL_PLACEMENT: 'BP_Interstitial_Android',
+  TEST_MODE: false,
+  INTERSTITIAL_COOLDOWN_MS: 2 * 60 * 1000, // 2 minutes
 };
+
+type InterstitialTriggerListener = (placementId: string) => void;
 
 class UnityAdsService {
   private gameId: string = UNITY_DEFAULTS.GAME_ID;
   private bannerPlacement: string = UNITY_DEFAULTS.BANNER_PLACEMENT;
   private interstitialPlacement: string = UNITY_DEFAULTS.INTERSTITIAL_PLACEMENT;
   private isInitialized: boolean = false;
+  private lastInterstitialTime: number = 0;
+  private interstitialListeners: Set<InterstitialTriggerListener> = new Set();
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('unity_ads_config');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          this.gameId = parsed.gameId || UNITY_DEFAULTS.GAME_ID;
+          this.bannerPlacement = parsed.banner || UNITY_DEFAULTS.BANNER_PLACEMENT;
+          this.interstitialPlacement = parsed.interstitial || UNITY_DEFAULTS.INTERSTITIAL_PLACEMENT;
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // Écouter deviceready pour Cordova
+      if (typeof document !== 'undefined') {
+        document.addEventListener('deviceready', () => {
+          this.initCordova();
+        });
+      }
+
+      this.initialize();
+    }
+  }
+
+  /**
+   * Initialisation du SDK natif sous Cordova si disponible
+   */
+  private initCordova() {
+    const win = typeof window !== 'undefined' ? (window as any) : {};
+    const unityPlugin = win.UnityAds || win.cordova?.plugins?.UnityAds;
+
+    if (unityPlugin && typeof unityPlugin.initialize === 'function') {
+      try {
+        unityPlugin.initialize(
+          this.gameId,
+          UNITY_DEFAULTS.TEST_MODE,
+          () => {
+            console.log('[UnityAds] SDK Cordova natif initialisé avec succès.');
+            this.isInitialized = true;
+          },
+          (err: any) => {
+            console.warn('[UnityAds] Erreur initialisation Cordova:', err);
+          }
+        );
+      } catch (err) {
+        console.warn('[UnityAds] Exception init Cordova:', err);
+      }
+    }
+  }
 
   /**
    * Initialise le SDK Unity Ads
    */
-  public initialize(gameId?: string, testMode: boolean = true) {
-    if (this.isInitialized) return;
-
+  public initialize(gameId?: string, testMode: boolean = UNITY_DEFAULTS.TEST_MODE) {
     if (gameId) {
       this.gameId = gameId;
     }
 
-    // TODO: Remplacez par l'appel réel d'initialisation de votre plugin Unity Ads natif
-    // Exemple avec un plugin Capacitor/Cordova ou React Native :
-    // UnityAds.initialize(this.gameId, testMode, (success) => {
-    //   this.isInitialized = success;
-    //   console.log("Unity Ads Initialized:", success);
-    // }, (error) => {
-    //   console.error("Unity Ads Init Error:", error);
-    // });
-
-    console.log(`[UnityAdsService] Initialisation avec Game ID: ${this.gameId} (Mode test: ${testMode})`);
     this.isInitialized = true;
+    console.log(`[UnityAdsService] Prêt avec Game ID: ${this.gameId} (Mode test: ${testMode})`);
   }
 
   /**
-   * Met à jour les identifiants de placement
+   * Met à jour les identifiants de placement et persiste la configuration
    */
   public updateConfig(gameId: string, bannerPlacement: string, interstitialPlacement: string) {
-    this.gameId = gameId;
-    this.bannerPlacement = bannerPlacement;
-    this.interstitialPlacement = interstitialPlacement;
-    
-    // Ré-initialiser avec le nouveau Game ID si nécessaire
-    this.initialize(gameId);
+    this.gameId = gameId.trim() || UNITY_DEFAULTS.GAME_ID;
+    this.bannerPlacement = bannerPlacement.trim() || UNITY_DEFAULTS.BANNER_PLACEMENT;
+    this.interstitialPlacement = interstitialPlacement.trim() || UNITY_DEFAULTS.INTERSTITIAL_PLACEMENT;
+
+    try {
+      localStorage.setItem(
+        'unity_ads_config',
+        JSON.stringify({
+          gameId: this.gameId,
+          banner: this.bannerPlacement,
+          interstitial: this.interstitialPlacement,
+        })
+      );
+    } catch (e) {
+      // ignore
+    }
+
+    this.initCordova();
+  }
+
+  public getGameId(): string {
+    return this.gameId;
+  }
+
+  public getBannerPlacement(): string {
+    return this.bannerPlacement;
+  }
+
+  public getInterstitialPlacement(): string {
+    return this.interstitialPlacement;
   }
 
   /**
-   * Charge et affiche une publicité interstitielle
+   * S'abonne aux demandes d'affichage d'interstitiel pour le lecteur d'annonce dans l'UI
    */
-  public showInterstitial(onAdClosed?: () => void) {
-    console.log(`[UnityAdsService] Chargement de l'interstitiel pour le placement : ${this.interstitialPlacement}`);
+  public onTriggerInterstitial(listener: InterstitialTriggerListener): () => void {
+    this.interstitialListeners.add(listener);
+    return () => {
+      this.interstitialListeners.delete(listener);
+    };
+  }
 
-    // Simulation pour le développement web / PWA (si le SDK natif n'est pas présent)
-    if (typeof window !== 'undefined' && !window.hasOwnProperty('UnityAds')) {
-      alert(`[Simulation Unity Ads] Publicité interstitielle (${this.interstitialPlacement}) affichée avec succès !`);
+  /**
+   * Vérifie si le cooldown d'affichage d'interstitiel est écoulé
+   */
+  public canShowInterstitial(): boolean {
+    const now = Date.now();
+    return now - this.lastInterstitialTime > UNITY_DEFAULTS.INTERSTITIAL_COOLDOWN_MS;
+  }
+
+  /**
+   * Charge et affiche une publicité interstitielle Unity
+   */
+  public showInterstitial(force: boolean = false, onAdClosed?: () => void) {
+    if (!force && !this.canShowInterstitial()) {
       if (onAdClosed) onAdClosed();
       return;
     }
 
-    // TODO: Appel natif réel de l'interstitiel
-    // UnityAds.load(this.interstitialPlacement, {
-    //   onUnityAdsAdLoaded: (placementId) => {
-    //     UnityAds.show(placementId, {}, (showResult) => {
-    //       if (onAdClosed) onAdClosed();
-    //     });
-    //   },
-    //   onUnityAdsFailedToLoad: (placementId, error, message) => {
-    //     console.error("Erreur chargement interstitiel Unity:", message);
-    //     if (onAdClosed) onAdClosed();
-    //   }
-    // });
+    this.lastInterstitialTime = Date.now();
+    console.log(`[UnityAdsService] Affichage de l'interstitiel pour : ${this.interstitialPlacement}`);
+
+    const win = typeof window !== 'undefined' ? (window as any) : {};
+    const unityPlugin = win.UnityAds || win.cordova?.plugins?.UnityAds;
+
+    // 1. Tenter l'appel Cordova natif si disponible
+    if (unityPlugin && typeof unityPlugin.show === 'function') {
+      try {
+        unityPlugin.show(
+          this.interstitialPlacement,
+          () => {
+            if (onAdClosed) onAdClosed();
+          },
+          (err: any) => {
+            console.warn('[UnityAds] Erreur affichage natif:', err);
+            // Fallback sur le lecteur in-app
+            this.notifyInterstitial(this.interstitialPlacement);
+            if (onAdClosed) onAdClosed();
+          }
+        );
+        return;
+      } catch (e) {
+        console.warn('[UnityAds] Exception show native:', e);
+      }
+    }
+
+    // 2. Affichage via le lecteur d'annonce in-app (Web / PWA / Fallback élégant)
+    this.notifyInterstitial(this.interstitialPlacement);
+    if (onAdClosed) {
+      setTimeout(onAdClosed, 5000);
+    }
+  }
+
+  private notifyInterstitial(placementId: string) {
+    this.interstitialListeners.forEach((listener) => {
+      try {
+        listener(placementId);
+      } catch (err) {
+        console.error('Erreur listener interstitiel Unity:', err);
+      }
+    });
   }
 
   /**
-   * Affiche une bannière publicitaire
+   * Affiche la bannière Unity Ads
    */
   public showBanner(position: 'TOP' | 'BOTTOM' = 'BOTTOM') {
-    console.log(`[UnityAdsService] Affichage de la bannière : ${this.bannerPlacement} en position ${position}`);
-    
-    // TODO: Intégration du composant ou de la méthode native de bannière Unity Ads
+    const win = typeof window !== 'undefined' ? (window as any) : {};
+    const unityPlugin = win.UnityAds || win.cordova?.plugins?.UnityAds;
+
+    if (unityPlugin && typeof unityPlugin.showBanner === 'function') {
+      try {
+        unityPlugin.showBanner(this.bannerPlacement, position);
+      } catch (e) {
+        console.warn('Erreur showBanner Cordova:', e);
+      }
+    }
   }
 
   /**
    * Masque la bannière publicitaire
    */
   public hideBanner() {
-    console.log(`[UnityAdsService] Masquage de la bannière`);
-    
-    // TODO: Masquage de la bannière native
+    const win = typeof window !== 'undefined' ? (window as any) : {};
+    const unityPlugin = win.UnityAds || win.cordova?.plugins?.UnityAds;
+
+    if (unityPlugin && typeof unityPlugin.hideBanner === 'function') {
+      try {
+        unityPlugin.hideBanner();
+      } catch (e) {
+        console.warn('Erreur hideBanner Cordova:', e);
+      }
+    }
   }
 }
 
