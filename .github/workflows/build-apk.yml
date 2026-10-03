@@ -40,7 +40,7 @@ jobs:
 
       - name: Generate Android APK with Cordova
         run: |
-          # 1. Création de l'application Cordova
+          # 1. Création du projet Cordova
           cordova create temp-app com.arreva.app Arreva
           cd temp-app
           
@@ -52,9 +52,11 @@ jobs:
           cp ../public/icons/icon-512.png res/icon.png
           sed -i '/<\/widget>/i \    <icon src="res/icon.png" />' config.xml
           
-          # 3. Préparation autonome du plugin Unity Ads avec plugin.xml valide (résout le bug AAPT2 AttributePrefixUnbound)
+          # 3. Préparation autonome du plugin Unity Ads compatible SDK 4.5.0
           rm -rf /tmp/unity-plugin
           git clone https://github.com/emi-indo/emi-indo-cordova-plugin-unityads.git /tmp/unity-plugin
+          
+          # Correction du plugin.xml (séparation stricte de AndroidManifest.xml et res/xml/config.xml)
           cat << 'EOF' > /tmp/unity-plugin/plugin.xml
           <?xml version="1.0" encoding="UTF-8"?>
           <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
@@ -103,10 +105,13 @@ jobs:
               </config-file>
 
               <source-file src="src/android/emiUnityAdsPlugin.java" target-dir="src/emi/indo/cordova/plugin/unityads"/>
-              <framework src="com.unity3d.ads:unity-ads:4.12.0"/>
+              <framework src="com.unity3d.ads:unity-ads:4.5.0"/>
             </platform>
           </plugin>
           EOF
+
+          # Nettoyage sécurisé du code source Java du plugin
+          sed -i 's/super.onDestroy();//g' /tmp/unity-plugin/src/android/emiUnityAdsPlugin.java
 
           # 4. Installation des plugins Cordova
           cordova plugin add /tmp/unity-plugin
