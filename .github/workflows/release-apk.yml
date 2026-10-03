@@ -117,6 +117,7 @@ jobs:
           EOF
 
           sed -i 's/super.onDestroy();//g' /tmp/unity-plugin/src/android/emiUnityAdsPlugin.java
+          sed -i 's/UnityAds.initialize(cordova.getActivity(),unityGameID,/UnityAds.initialize(cordova.getActivity(),unityGameID,true,/g' /tmp/unity-plugin/src/android/emiUnityAdsPlugin.java
 
           cordova plugin add /tmp/unity-plugin
           cordova plugin add cordova-plugin-androidx-adapter

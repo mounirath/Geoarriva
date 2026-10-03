@@ -395,12 +395,13 @@ export default function App() {
   const handleSaveUnityConfig = (
     gameId: string,
     banner: string,
-    interstitial: string
+    interstitial: string,
+    testMode: boolean = true
   ) => {
     setUnityGameId(gameId);
     setUnityBannerPlacement(banner);
     setUnityInterstitialPlacement(interstitial);
-    unityAdsService.updateConfig(gameId, banner, interstitial);
+    unityAdsService.updateConfig(gameId, banner, interstitial, testMode);
   };
 
   // Basculer le mode simulation

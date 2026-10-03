@@ -113,6 +113,7 @@ jobs:
 
           # Nettoyage sécurisé du code source Java du plugin
           sed -i 's/super.onDestroy();//g' /tmp/unity-plugin/src/android/emiUnityAdsPlugin.java
+          sed -i 's/UnityAds.initialize(cordova.getActivity(),unityGameID,/UnityAds.initialize(cordova.getActivity(),unityGameID,true,/g' /tmp/unity-plugin/src/android/emiUnityAdsPlugin.java
 
           # 4. Installation des plugins Cordova
           cordova plugin add /tmp/unity-plugin
