@@ -4,6 +4,18 @@ import { Coordinates } from '../utils/geo';
 import { Navigation, Locate, Eye, Map as MapIcon, Layers } from 'lucide-react';
 import { Translations } from '../utils/i18n';
 
+// Clé API CARTO Basemaps officielle configurée
+export const CARTO_API_KEY =
+  (import.meta as any).env?.VITE_CARTO_API_KEY ||
+  'cb1_48if_2_0f3fe5e8cce7bab4ee01bfc8';
+
+export const getCartoTileUrl = (style: 'voyager' | 'dark' = 'voyager') => {
+  if (style === 'dark') {
+    return `https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`;
+  }
+  return `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=${CARTO_API_KEY}`;
+};
+
 interface MapComponentProps {
   userLocation: Coordinates | null;
   userAccuracy: number | null;
@@ -37,7 +49,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const radiusCircleRef = useRef<L.Circle | null>(null);
   const connectingLineRef = useRef<L.Polyline | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
-  const [mapStyle, setMapStyle] = React.useState<'dark' | 'light'>('dark');
+  const [mapStyle, setMapStyle] = React.useState<'voyager' | 'dark'>('voyager');
   const hasAutoCenteredRef = useRef<boolean>(false);
 
   // Initialisation de la carte Leaflet
@@ -58,14 +70,11 @@ export const MapComponent: React.FC<MapComponentProps> = ({
 
     // Attribution discrète
     L.control.attribution({ position: 'bottomright', prefix: false })
-      .addAttribution('&copy; <a href="https://openstreetmap.org" class="text-slate-500 hover:underline">OSM</a>')
+      .addAttribution('&copy; <a href="https://carto.com/" target="_blank" rel="noopener" class="text-slate-500 hover:underline">CARTO</a> &copy; <a href="https://openstreetmap.org" class="text-slate-500 hover:underline">OSM</a>')
       .addTo(map);
 
-    // Tuile par défaut : CartoDB Dark Matter pour un rendu moderne
-    const tileUrl =
-      mapStyle === 'dark'
-        ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    // Tuile par défaut : CartoDB Voyager avec clé API officielle
+    const tileUrl = getCartoTileUrl(mapStyle);
 
     const tileLayer = L.tileLayer(tileUrl, {
       maxZoom: 19,
@@ -90,16 +99,13 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     };
   }, []);
 
-  // Changement de style de carte (Dark Voyager vs OSM classique)
+  // Changement de style de carte (Voyager vs Dark Matter avec clé API CARTO)
   useEffect(() => {
     if (!mapInstanceRef.current || !tileLayerRef.current) return;
 
     mapInstanceRef.current.removeLayer(tileLayerRef.current);
 
-    const tileUrl =
-      mapStyle === 'dark'
-        ? 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const tileUrl = getCartoTileUrl(mapStyle);
 
     tileLayerRef.current = L.tileLayer(tileUrl, {
       maxZoom: 19,
@@ -379,9 +385,9 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           </button>
         )}
 
-        {/* Bascule style de carte */}
+        {/* Bascule style de carte (Voyager / Dark) */}
         <button
-          onClick={() => setMapStyle((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+          onClick={() => setMapStyle((prev) => (prev === 'voyager' ? 'dark' : 'voyager'))}
           title={t.changeMapStyle}
           className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800 text-xs"
         >

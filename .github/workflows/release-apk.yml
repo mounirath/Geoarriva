@@ -39,6 +39,7 @@ jobs:
 
       - name: Build Web Application (Vite)
         env:
+          VITE_CARTO_API_KEY: "cb1_48if_2_0f3fe5e8cce7bab4ee01bfc8"
           VITE_UNITY_GAME_ID: "800387003"
           VITE_UNITY_BANNER_PLACEMENT: "BP_Banner_Android"
           VITE_UNITY_INTERSTITIAL_PLACEMENT: "BP_Interstitial_Android"
