@@ -40,28 +40,84 @@ jobs:
 
       - name: Generate Android APK with Cordova
         run: |
+          # 1. Création de l'application Cordova
           cordova create temp-app com.arreva.app Arreva
           cd temp-app
           
           rm -rf www/*
           cp -r ../dist/* www/
           
-          # Configuration de l'icône officielle de l'application
+          # 2. Configuration de l'icône de l'application
           mkdir -p res
           cp ../public/icons/icon-512.png res/icon.png
           sed -i '/<\/widget>/i \    <icon src="res/icon.png" />' config.xml
           
-          # Plugin Unity Ads officiel validé et corrigé (sans nesting d'AndroidManifest dans config.xml)
-          cordova plugin add ../cordova-plugins/cordova-plugin-unityads
+          # 3. Préparation autonome du plugin Unity Ads avec plugin.xml valide (résout le bug AAPT2 AttributePrefixUnbound)
+          rm -rf /tmp/unity-plugin
+          git clone https://github.com/emi-indo/emi-indo-cordova-plugin-unityads.git /tmp/unity-plugin
+          cat << 'EOF' > /tmp/unity-plugin/plugin.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+                  xmlns:android="http://schemas.android.com/apk/res/android"
+                  id="emi-indo-cordova-plugin-unityads"
+                  version="0.0.3">
+            <name>emiUnityAdsPlugin</name>
+            <description>Cordova Plugin Unity Ads</description>
+            <author>EMI INDO</author>
+            <license>ISC</license>
+
+            <js-module src="www/emiUnityAdsPlugin.js" name="emiUnityAdsPlugin">
+              <clobbers target="cordova.plugins.emiUnityAdsPlugin"/>
+              <clobbers target="UnityAds"/>
+            </js-module>
+
+            <engines>
+              <engine name="cordova" version=">=10.0.0"/>
+              <engine name="cordova-android" version=">=10.0.0"/>
+            </engines>
+
+            <platform name="android">
+              <config-file target="res/xml/config.xml" parent="/*">
+                <feature name="emiUnityAdsPlugin">
+                  <param name="android-package" value="emi.indo.cordova.plugin.unityads.emiUnityAdsPlugin"/>
+                </feature>
+              </config-file>
+
+              <config-file target="AndroidManifest.xml" parent="/*">
+                <uses-permission android:name="android.permission.INTERNET"/>
+                <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+                <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+              </config-file>
+
+              <config-file target="AndroidManifest.xml" parent="/manifest/application">
+                <activity
+                    android:name="com.unity3d.ads.adunit.AdUnitActivity"
+                    android:configChanges="fontScale|keyboard|keyboardHidden|locale|mnc|mcc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|touchscreen"
+                    android:hardwareAccelerated="true"
+                    android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+                <activity
+                    android:name="com.unity3d.ads.adunit.AdUnitSoftwareActivity"
+                    android:configChanges="fontScale|keyboard|keyboardHidden|locale|mnc|mcc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|touchscreen"
+                    android:hardwareAccelerated="false"
+                    android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+              </config-file>
+
+              <source-file src="src/android/emiUnityAdsPlugin.java" target-dir="src/emi/indo/cordova/plugin/unityads"/>
+              <framework src="com.unity3d.ads:unity-ads:4.12.0"/>
+            </platform>
+          </plugin>
+          EOF
+
+          # 4. Installation des plugins Cordova
+          cordova plugin add /tmp/unity-plugin
           cordova plugin add cordova-plugin-androidx-adapter
-          
-          # Plugins Geolocation et Permissions Android
           cordova plugin add cordova-plugin-android-permissions
           cordova plugin add cordova-plugin-geolocation
           
+          # 5. Ajout de la plateforme Android
           cordova platform add android
           
-          # Nettoyage préventif strict de res/xml/config.xml (évite le bug AAPT2 AttributePrefixUnbound)
+          # 6. Nettoyage de sécurité préventif sur res/xml/config.xml
           CONFIG_XML="platforms/android/app/src/main/res/xml/config.xml"
           if [ -f "$CONFIG_XML" ]; then
             sed -i '/<uses-permission/d' "$CONFIG_XML"
@@ -71,17 +127,15 @@ jobs:
             sed -i '/<\/config-file>/d' "$CONFIG_XML"
           fi
 
-          # Vérification et injection des permissions dans AndroidManifest.xml
+          # 7. Garantie des permissions GPS dans AndroidManifest.xml
           MANIFEST="platforms/android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             if ! grep -q "ACCESS_FINE_LOCATION" "$MANIFEST"; then
               sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />' "$MANIFEST"
             fi
-            if ! grep -q "ACCESS_NETWORK_STATE" "$MANIFEST"; then
-              sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />' "$MANIFEST"
-            fi
           fi
           
+          # 8. Compilation de l'APK
           cordova build android --debug
 
       - name: Upload APK Artifact

@@ -39,8 +39,9 @@ jobs:
 
       - name: Build Web Application (Vite)
         env:
-          VITE_ADMOB_CLIENT_ID: "ca-app-pub-1050422776945344~6855047295"
-          VITE_ADMOB_SLOT_ID: "ca-app-pub-1050422776945344/8752251197"
+          VITE_UNITY_GAME_ID: "800387003"
+          VITE_UNITY_BANNER_PLACEMENT: "BP_Banner_Android"
+          VITE_UNITY_INTERSTITIAL_PLACEMENT: "BP_Interstitial_Android"
         run: bun run build
 
       - name: Install Cordova CLI
@@ -48,35 +49,109 @@ jobs:
 
       - name: Build Android APK with Cordova
         run: |
-          cordova create temp-app com.geoarriva.app Geoarriva
+          cordova create temp-app com.arreva.app Arreva
           cd temp-app
           
           rm -rf www/*
           cp -r ../dist/* www/
           
-          # Plugin AdMob avec l'identifiant AdMob
-          cordova plugin add cordova-plugin-admob-free --variable ADMOB_APP_ID="ca-app-pub-1050422776945344~6855047295"
+          mkdir -p res
+          cp ../public/icons/icon-512.png res/icon.png
+          sed -i '/<\/widget>/i \    <icon src="res/icon.png" />' config.xml
+          
+          # Plugin Unity Ads autonome et corrigé
+          rm -rf /tmp/unity-plugin
+          git clone https://github.com/emi-indo/emi-indo-cordova-plugin-unityads.git /tmp/unity-plugin
+          cat << 'EOF' > /tmp/unity-plugin/plugin.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+                  xmlns:android="http://schemas.android.com/apk/res/android"
+                  id="emi-indo-cordova-plugin-unityads"
+                  version="0.0.3">
+            <name>emiUnityAdsPlugin</name>
+            <description>Cordova Plugin Unity Ads</description>
+            <author>EMI INDO</author>
+            <license>ISC</license>
+
+            <js-module src="www/emiUnityAdsPlugin.js" name="emiUnityAdsPlugin">
+              <clobbers target="cordova.plugins.emiUnityAdsPlugin"/>
+              <clobbers target="UnityAds"/>
+            </js-module>
+
+            <engines>
+              <engine name="cordova" version=">=10.0.0"/>
+              <engine name="cordova-android" version=">=10.0.0"/>
+            </engines>
+
+            <platform name="android">
+              <config-file target="res/xml/config.xml" parent="/*">
+                <feature name="emiUnityAdsPlugin">
+                  <param name="android-package" value="emi.indo.cordova.plugin.unityads.emiUnityAdsPlugin"/>
+                </feature>
+              </config-file>
+
+              <config-file target="AndroidManifest.xml" parent="/*">
+                <uses-permission android:name="android.permission.INTERNET"/>
+                <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+                <uses-permission android:name="com.google.android.gms.permission.AD_ID"/>
+              </config-file>
+
+              <config-file target="AndroidManifest.xml" parent="/manifest/application">
+                <activity
+                    android:name="com.unity3d.ads.adunit.AdUnitActivity"
+                    android:configChanges="fontScale|keyboard|keyboardHidden|locale|mnc|mcc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|touchscreen"
+                    android:hardwareAccelerated="true"
+                    android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+                <activity
+                    android:name="com.unity3d.ads.adunit.AdUnitSoftwareActivity"
+                    android:configChanges="fontScale|keyboard|keyboardHidden|locale|mnc|mcc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|uiMode|touchscreen"
+                    android:hardwareAccelerated="false"
+                    android:theme="@android:style/Theme.NoTitleBar.Fullscreen" />
+              </config-file>
+
+              <source-file src="src/android/emiUnityAdsPlugin.java" target-dir="src/emi/indo/cordova/plugin/unityads"/>
+              <framework src="com.unity3d.ads:unity-ads:4.12.0"/>
+            </platform>
+          </plugin>
+          EOF
+
+          cordova plugin add /tmp/unity-plugin
           cordova plugin add cordova-plugin-androidx-adapter
+          cordova plugin add cordova-plugin-android-permissions
           cordova plugin add cordova-plugin-geolocation
           
           cordova platform add android
-          cordova build android --debug
           
-          mkdir -p ../release-output
-          cp platforms/android/app/build/outputs/apk/debug/app-debug.apk ../release-output/geoarriva-${{ github.event.inputs.version_tag || github.ref_name }}.apk
+          CONFIG_XML="platforms/android/app/src/main/res/xml/config.xml"
+          if [ -f "$CONFIG_XML" ]; then
+            sed -i '/<uses-permission/d' "$CONFIG_XML"
+            sed -i '/<activity/d' "$CONFIG_XML"
+            sed -i '/<\/activity>/d' "$CONFIG_XML"
+            sed -i '/<config-file/d' "$CONFIG_XML"
+            sed -i '/<\/config-file>/d' "$CONFIG_XML"
+          fi
 
-      - name: Create GitHub Release and Upload APK
+          MANIFEST="platforms/android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ]; then
+            if ! grep -q "ACCESS_FINE_LOCATION" "$MANIFEST"; then
+              sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />' "$MANIFEST"
+            fi
+          fi
+          
+          cordova build android --release -- --packageType=apk || cordova build android --debug
+          
+          if [ -f "platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+            cp platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk ../arreva-release.apk
+          else
+            cp platforms/android/app/build/outputs/apk/debug/app-debug.apk ../arreva-release.apk
+          fi
+
+      - name: Create Release and Upload APK
         uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          tag_name: ${{ github.event.inputs.version_tag || github.ref_name }}
-          name: "Geoarriva ${{ github.event.inputs.version_tag || github.ref_name }}"
-          body: |
-            ### 📱 Application mobile Android Geoarriva
-            - **Alerte GPS d'arrivée** pour les transports en commun.
-            - **Intégration Google AdMob** (App Open Ad).
-            - Support des autorisations GPS natives Android.
-            
-            Téléchargez le fichier `.apk` ci-dessous et installez-le sur votre smartphone Android.
-          files: release-output/*.apk
+          files: arreva-release.apk
+          name: "Arreva Mobile Android - ${{ github.ref_name }}"
           draft: false
           prerelease: false
+          generate_release_notes: true
