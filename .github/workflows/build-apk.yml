@@ -51,21 +51,34 @@ jobs:
           cp ../public/icons/icon-512.png res/icon.png
           sed -i '/<\/widget>/i \    <icon src="res/icon.png" />' config.xml
           
-          # Plugin Unity Ads pour Cordova Android
-          cordova plugin add https://github.com/emi-indo/emi-indo-cordova-plugin-unityads.git || true
+          # Plugin Unity Ads officiel validé et corrigé (sans nesting d'AndroidManifest dans config.xml)
+          cordova plugin add ../cordova-plugins/cordova-plugin-unityads
           cordova plugin add cordova-plugin-androidx-adapter
           
-          # Plugin Geolocation officiel et Permissions Android pour activer l'accès GPS natif
+          # Plugins Geolocation et Permissions Android
           cordova plugin add cordova-plugin-android-permissions
           cordova plugin add cordova-plugin-geolocation
           
           cordova platform add android
+          
+          # Nettoyage préventif strict de res/xml/config.xml (évite le bug AAPT2 AttributePrefixUnbound)
+          CONFIG_XML="platforms/android/app/src/main/res/xml/config.xml"
+          if [ -f "$CONFIG_XML" ]; then
+            sed -i '/<uses-permission/d' "$CONFIG_XML"
+            sed -i '/<activity/d' "$CONFIG_XML"
+            sed -i '/<\/activity>/d' "$CONFIG_XML"
+            sed -i '/<config-file/d' "$CONFIG_XML"
+            sed -i '/<\/config-file>/d' "$CONFIG_XML"
+          fi
 
-          # Vérification et garantie des permissions GPS dans AndroidManifest.xml
+          # Vérification et injection des permissions dans AndroidManifest.xml
           MANIFEST="platforms/android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             if ! grep -q "ACCESS_FINE_LOCATION" "$MANIFEST"; then
               sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-feature android:name="android.hardware.location.gps" />' "$MANIFEST"
+            fi
+            if ! grep -q "ACCESS_NETWORK_STATE" "$MANIFEST"; then
+              sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />\n    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />' "$MANIFEST"
             fi
           fi
           

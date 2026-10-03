@@ -1,8 +1,9 @@
 /**
- * UnityAdsService - Service officiel de gestion de Unity Ads pour l'application arreva
+ * UnityAdsService - Service officiel de gestion de Unity Ads pour l'application Arreva
  * 
  * Identifiants configurés par l'utilisateur :
  * - Game ID : 800387003
+ * - Organization Core ID : 11270132357134
  * - Placement Bannière : BP_Banner_Android
  * - Placement Interstitiel : BP_Interstitial_Android
  */
@@ -51,29 +52,51 @@ class UnityAdsService {
     }
   }
 
+  private getPlugin(): any {
+    if (typeof window === 'undefined') return null;
+    const win = window as any;
+    return (
+      win.cordova?.plugins?.emiUnityAdsPlugin ||
+      win.cordova?.plugins?.UnityAds ||
+      win.UnityAds ||
+      null
+    );
+  }
+
   /**
    * Initialisation du SDK natif sous Cordova si disponible
    */
   private initCordova() {
-    const win = typeof window !== 'undefined' ? (window as any) : {};
-    const unityPlugin = win.UnityAds || win.cordova?.plugins?.UnityAds;
+    const plugin = this.getPlugin();
+    if (!plugin) return;
 
-    if (unityPlugin && typeof unityPlugin.initialize === 'function') {
-      try {
-        unityPlugin.initialize(
+    try {
+      if (typeof plugin.unitySdkInitialize === 'function') {
+        plugin.unitySdkInitialize(
           this.gameId,
-          UNITY_DEFAULTS.TEST_MODE,
           () => {
             console.log('[UnityAds] SDK Cordova natif initialisé avec succès.');
             this.isInitialized = true;
           },
           (err: any) => {
-            console.warn('[UnityAds] Erreur initialisation Cordova:', err);
+            console.warn('[UnityAds] Erreur init Cordova:', err);
           }
         );
-      } catch (err) {
-        console.warn('[UnityAds] Exception init Cordova:', err);
+      } else if (typeof plugin.initialize === 'function') {
+        plugin.initialize(
+          this.gameId,
+          UNITY_DEFAULTS.TEST_MODE,
+          () => {
+            console.log('[UnityAds] SDK Cordova natif initialisé.');
+            this.isInitialized = true;
+          },
+          (err: any) => {
+            console.warn('[UnityAds] Erreur init Cordova:', err);
+          }
+        );
       }
+    } catch (e) {
+      console.warn('[UnityAds] Exception init Cordova:', e);
     }
   }
 
@@ -155,34 +178,45 @@ class UnityAdsService {
     this.lastInterstitialTime = Date.now();
     console.log(`[UnityAdsService] Affichage de l'interstitiel pour : ${this.interstitialPlacement}`);
 
-    const win = typeof window !== 'undefined' ? (window as any) : {};
-    const unityPlugin = win.UnityAds || win.cordova?.plugins?.UnityAds;
-
-    // 1. Tenter l'appel Cordova natif si disponible
-    if (unityPlugin && typeof unityPlugin.show === 'function') {
-      try {
-        unityPlugin.show(
-          this.interstitialPlacement,
-          () => {
-            if (onAdClosed) onAdClosed();
-          },
-          (err: any) => {
-            console.warn('[UnityAds] Erreur affichage natif:', err);
-            // Fallback sur le lecteur in-app
-            this.notifyInterstitial(this.interstitialPlacement);
-            if (onAdClosed) onAdClosed();
-          }
-        );
-        return;
-      } catch (e) {
-        console.warn('[UnityAds] Exception show native:', e);
+    const plugin = this.getPlugin();
+    if (plugin) {
+      if (typeof plugin.loadInterstitialAd === 'function' && typeof plugin.showInterstitialAd === 'function') {
+        try {
+          plugin.loadInterstitialAd(
+            this.interstitialPlacement,
+            () => {
+              plugin.showInterstitialAd(
+                () => { if (onAdClosed) onAdClosed(); },
+                () => { this.notifyInterstitial(this.interstitialPlacement); if (onAdClosed) onAdClosed(); }
+              );
+            },
+            () => {
+              this.notifyInterstitial(this.interstitialPlacement);
+              if (onAdClosed) onAdClosed();
+            }
+          );
+          return;
+        } catch (e) {
+          console.warn('[UnityAds] Exception native show:', e);
+        }
+      } else if (typeof plugin.show === 'function') {
+        try {
+          plugin.show(
+            this.interstitialPlacement,
+            () => { if (onAdClosed) onAdClosed(); },
+            () => { this.notifyInterstitial(this.interstitialPlacement); if (onAdClosed) onAdClosed(); }
+          );
+          return;
+        } catch (e) {
+          console.warn('[UnityAds] Exception show:', e);
+        }
       }
     }
 
-    // 2. Affichage via le lecteur d'annonce in-app (Web / PWA / Fallback élégant)
+    // Fallback sur le lecteur in-app
     this.notifyInterstitial(this.interstitialPlacement);
     if (onAdClosed) {
-      setTimeout(onAdClosed, 5000);
+      setTimeout(onAdClosed, 5500);
     }
   }
 
@@ -200,15 +234,28 @@ class UnityAdsService {
    * Affiche la bannière Unity Ads
    */
   public showBanner(position: 'TOP' | 'BOTTOM' = 'BOTTOM') {
-    const win = typeof window !== 'undefined' ? (window as any) : {};
-    const unityPlugin = win.UnityAds || win.cordova?.plugins?.UnityAds;
+    const plugin = this.getPlugin();
+    if (!plugin) return;
 
-    if (unityPlugin && typeof unityPlugin.showBanner === 'function') {
-      try {
-        unityPlugin.showBanner(this.bannerPlacement, position);
-      } catch (e) {
-        console.warn('Erreur showBanner Cordova:', e);
+    try {
+      if (typeof plugin.loadBannerAd === 'function' && typeof plugin.showBannerAd === 'function') {
+        const pos = position === 'TOP' ? 'top-center' : 'bottom-center';
+        plugin.loadBannerAd(
+          this.bannerPlacement,
+          pos,
+          () => {
+            plugin.showBannerAd(
+              () => console.log('[UnityAds] Bannière affichée avec succès'),
+              (e: any) => console.warn('[UnityAds] Erreur showBanner:', e)
+            );
+          },
+          (e: any) => console.warn('[UnityAds] Erreur loadBannerAd:', e)
+        );
+      } else if (typeof plugin.showBanner === 'function') {
+        plugin.showBanner(this.bannerPlacement, position);
       }
+    } catch (e) {
+      console.warn('Erreur showBanner Cordova:', e);
     }
   }
 
@@ -216,15 +263,17 @@ class UnityAdsService {
    * Masque la bannière publicitaire
    */
   public hideBanner() {
-    const win = typeof window !== 'undefined' ? (window as any) : {};
-    const unityPlugin = win.UnityAds || win.cordova?.plugins?.UnityAds;
+    const plugin = this.getPlugin();
+    if (!plugin) return;
 
-    if (unityPlugin && typeof unityPlugin.hideBanner === 'function') {
-      try {
-        unityPlugin.hideBanner();
-      } catch (e) {
-        console.warn('Erreur hideBanner Cordova:', e);
+    try {
+      if (typeof plugin.hideBannerAd === 'function') {
+        plugin.hideBannerAd();
+      } else if (typeof plugin.hideBanner === 'function') {
+        plugin.hideBanner();
       }
+    } catch (e) {
+      console.warn('Erreur hideBanner Cordova:', e);
     }
   }
 }
