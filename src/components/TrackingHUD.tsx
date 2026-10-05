@@ -11,6 +11,8 @@ import {
   Smartphone,
   Music,
   Star,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { formatDistance, formatSpeed, estimateRemainingTime } from '../utils/geo';
 import { RadiusSelector } from './RadiusSelector';
@@ -54,12 +56,19 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
   onOpenFavorites,
   t,
 }) => {
-  const [showSettings, setShowSettings] = useState(false);
-  const [soundTested, setSoundTested] = useState(false);
+  // Le menu est fermé par défaut
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [soundTested, setSoundTested] = useState<boolean>(false);
 
   const formattedDist = formatDistance(distance);
   const speedText = formatSpeed(currentSpeed);
   const etaText = distance !== null ? estimateRemainingTime(distance, currentSpeed) : '--';
+
+  // Fonction interrupteur toggle
+  const toggleMenu = () => {
+    setIsMenuOpen((prev) => !prev);
+  };
 
   // Test du son de l'alarme
   const handleTestSound = () => {
@@ -71,13 +80,34 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[500] p-3 sm:p-4 max-w-lg mx-auto pointer-events-none">
-      <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl p-4 pointer-events-auto transition-all">
-        {/* En-tête HUD avec état du suivi & raccourcis */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
-          <div className="flex items-center gap-2.5">
+    <div
+      id="bottom-sliding-menu"
+      className={`fixed bottom-0 left-0 right-0 z-[500] max-w-lg mx-auto pointer-events-auto bg-slate-900/95 backdrop-blur-2xl border-t border-x border-slate-700/80 rounded-t-3xl sm:rounded-t-[32px] shadow-2xl transition-transform ease-out transform ${
+        isMenuOpen ? 'translate-y-0' : 'translate-y-[calc(100%-54px)]'
+      }`}
+      style={{
+        transitionProperty: 'transform',
+        transitionDuration: '350ms',
+        transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      }}
+    >
+      {/* Languette / Poignée tactile interactive (Interrupteur Ouvrir / Fermer) */}
+      <button
+        type="button"
+        onClick={toggleMenu}
+        aria-expanded={isMenuOpen}
+        aria-controls="bottom-sliding-menu"
+        aria-label={isMenuOpen ? 'Fermer le menu de trajet' : 'Ouvrir le menu de trajet'}
+        className="w-full h-[54px] px-4 pt-2 pb-1.5 flex flex-col items-center justify-between cursor-pointer select-none group focus:outline-none active:scale-[0.98] transition-all bg-slate-900/80 hover:bg-slate-800/60 rounded-t-3xl sm:rounded-t-[32px] border-b border-slate-800/80"
+      >
+        {/* Poignée horizontale bien visible et tactile */}
+        <div className="w-14 h-1.5 rounded-full bg-slate-500/80 group-hover:bg-amber-400 group-active:bg-amber-300 transition-colors shadow-sm" />
+
+        {/* Aperçu compact selon l'état ouvert / fermé */}
+        <div className="w-full flex items-center justify-between text-xs text-slate-300 px-1">
+          <div className="flex items-center gap-2 min-w-0">
             <span
-              className={`relative flex h-3 w-3 ${
+              className={`relative flex h-2.5 w-2.5 shrink-0 ${
                 isTracking ? 'text-emerald-500' : 'text-slate-500'
               }`}
             >
@@ -85,12 +115,37 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               )}
               <span
-                className={`relative inline-flex rounded-full h-3 w-3 ${
+                className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
                   isTracking ? 'bg-emerald-500' : 'bg-slate-600'
                 }`}
               />
             </span>
-            <span className="text-xs font-semibold text-slate-200">
+            <span className="text-[11px] font-semibold text-slate-200 truncate">
+              {isTracking
+                ? `${isSimulating ? t.trackingSimActive : t.trackingActive} · ${formattedDist.value} ${formattedDist.unit}`
+                : destinationSet && distance !== null
+                ? `${destinationAddress || 'Destination'} · ${formattedDist.value} ${formattedDist.unit}`
+                : t.waitingForDeparture}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 text-[10px] font-bold text-amber-400 group-hover:text-amber-300 transition-colors shrink-0">
+            <span>{isMenuOpen ? 'Fermer' : 'Ouvrir'}</span>
+            {isMenuOpen ? (
+              <ChevronDown className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronUp className="w-3.5 h-3.5 animate-bounce" />
+            )}
+          </div>
+        </div>
+      </button>
+
+      {/* Contenu complet du menu (Visible quand remonté) */}
+      <div className="p-3 sm:p-4 space-y-3">
+        {/* Barre d'état interne avec raccourcis */}
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-800/80">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-300">
               {isTracking
                 ? isSimulating
                   ? t.trackingSimActive
@@ -141,7 +196,11 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
             <button
               onClick={() => setShowSettings(!showSettings)}
               type="button"
-              className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-slate-300 hover:text-white transition-colors"
+              className={`p-1.5 rounded-xl border transition-colors ${
+                showSettings
+                  ? 'bg-amber-500/20 text-amber-400 border-amber-500/50'
+                  : 'bg-slate-800/80 hover:bg-slate-700 border-slate-700/60 text-slate-300 hover:text-white'
+              }`}
               title={t.adjustRadius}
             >
               <Sliders className="w-3.5 h-3.5" />
@@ -151,7 +210,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
 
         {/* Panneau dépliable de réglage du rayon */}
         {showSettings && (
-          <div className="pt-3 pb-2 animate-in slide-in-from-top-2 duration-150">
+          <div className="pt-2 pb-2 animate-in slide-in-from-top-2 duration-150">
             <RadiusSelector
               radius={radius}
               onChangeRadius={onChangeRadius}
@@ -162,7 +221,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
         )}
 
         {/* Affichage des métriques principales (Distance, Vitesse, ETA) */}
-        <div className="py-3">
+        <div>
           {destinationSet && distance !== null ? (
             <div className="grid grid-cols-3 gap-2 text-center">
               {/* Distance restante */}
@@ -215,7 +274,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
               onClick={onStartTracking}
               disabled={!destinationSet}
               type="button"
-              className="w-full py-3.5 px-5 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-sm sm:text-base shadow-xl shadow-amber-500/10 flex items-center justify-center gap-2 transition-all"
+              className="w-full py-3 px-5 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-sm sm:text-base shadow-xl shadow-amber-500/10 flex items-center justify-center gap-2 transition-all"
             >
               <Play className="w-4 h-4 fill-slate-950" />
               <span>{t.startTracking}</span>
@@ -225,7 +284,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
               <button
                 onClick={onStopTracking}
                 type="button"
-                className="flex-1 py-3.5 px-4 rounded-2xl bg-rose-600/90 hover:bg-rose-500 active:scale-[0.98] text-white font-bold text-sm sm:text-base shadow-lg shadow-rose-950/30 flex items-center justify-center gap-2 transition-all"
+                className="flex-1 py-3 px-4 rounded-2xl bg-rose-600/90 hover:bg-rose-500 active:scale-[0.98] text-white font-bold text-sm sm:text-base shadow-lg shadow-rose-950/30 flex items-center justify-center gap-2 transition-all"
               >
                 <Square className="w-4 h-4 fill-white" />
                 <span>{t.stopTracking}</span>
@@ -237,7 +296,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
                   onClick={onSimulateStep}
                   type="button"
                   title={t.stepForward}
-                  className="py-3.5 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-semibold text-xs border border-slate-700 flex items-center gap-1.5 transition-all"
+                  className="py-3 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-semibold text-xs border border-slate-700 flex items-center gap-1.5 transition-all"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>{t.stepForward}</span>
@@ -247,7 +306,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
           )}
 
           {/* Mode simulation & option maintien d'écran */}
-          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-1">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 pt-0.5">
             <button
               type="button"
               onClick={onToggleSimulation}
