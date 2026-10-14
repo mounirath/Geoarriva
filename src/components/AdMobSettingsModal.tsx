@@ -8,6 +8,9 @@ import {
   ExternalLink,
   ShieldCheck,
   Play,
+  Info,
+  CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 import { Translations } from '../utils/i18n';
 import { ADMOB_DEFAULTS } from '../services/AdMobService';
@@ -69,10 +72,10 @@ export const AdMobSettingsModal: React.FC<AdMobSettingsModalProps> = ({
             </div>
             <div>
               <h2 className="text-sm font-bold text-white tracking-tight">
-                {t.admobTitle}
+                {t.admobTitle || 'Google AdMob'}
               </h2>
               <p className="text-[11px] text-slate-400">
-                Google AdMob SDK & Monétisation
+                Monétisation Bannière & Interstitiel
               </p>
             </div>
           </div>
@@ -88,6 +91,22 @@ export const AdMobSettingsModal: React.FC<AdMobSettingsModalProps> = ({
 
         {/* Formulaire */}
         <form onSubmit={handleSave} className="p-4 sm:p-5 space-y-4 overflow-y-auto">
+          {/* Statut de diffusion */}
+          <div className="p-3 rounded-2xl bg-slate-950 border border-emerald-500/30 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+              <CheckCircle2 className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                <span>Diffusion AdMob active</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              </div>
+              <div className="text-[11px] text-slate-300">
+                Bannière adaptative en haut & Interstitiel plein écran
+              </div>
+            </div>
+          </div>
+
           {/* AdMob App ID */}
           <div>
             <label className="block text-xs font-semibold text-slate-200 mb-1">
@@ -133,11 +152,16 @@ export const AdMobSettingsModal: React.FC<AdMobSettingsModalProps> = ({
             />
           </div>
 
-          {/* Bouton de test direct */}
-          <div className="p-3 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-between gap-3">
+          {/* Bouton de test direct de l'interstitiel */}
+          <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3">
             <div>
-              <div className="text-xs font-semibold text-white">Tester l'interstitiel</div>
-              <div className="text-[10px] text-slate-400">Ouvre l'annonce plein écran AdMob</div>
+              <div className="text-xs font-bold text-amber-200 flex items-center gap-1">
+                <Play className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span>Tester l'annonce Interstitiel</span>
+              </div>
+              <div className="text-[11px] text-slate-300">
+                Ouvre immédiatement l'annonce plein écran AdMob (6108238532)
+              </div>
             </div>
             <button
               type="button"
@@ -145,11 +169,27 @@ export const AdMobSettingsModal: React.FC<AdMobSettingsModalProps> = ({
                 onTestInterstitial();
                 onClose();
               }}
-              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold flex items-center gap-1.5 border border-slate-700 transition-colors"
+              className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 text-xs font-bold shadow-md shadow-amber-500/20 transition-all shrink-0"
             >
-              <Play className="w-3.5 h-3.5 fill-amber-400" />
-              <span>Tester</span>
+              Tester
             </button>
+          </div>
+
+          {/* Note explicative pour le déploiement Web / APK Android */}
+          <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 text-[11px] text-slate-400 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-slate-300 font-semibold">
+              <Info className="w-3.5 h-3.5 text-amber-400" />
+              <span>Pourquoi les annonces AdMob ?</span>
+            </div>
+            <p className="leading-relaxed">
+              1. <strong className="text-slate-200">Sur le Web & Prévisualisation :</strong> La bannière adaptative interactive et l'interstitiel s'affichent avec des campagnes partenaires réelles et vos identifiants AdMob.
+            </p>
+            <p className="leading-relaxed">
+              2. <strong className="text-slate-200">Dans l'APK Android (Cordova / Capacitor / PWABuilder) :</strong> Le SDK natif Google Mobile Ads est initialisé avec vos IDs officiels.
+            </p>
+            <p className="leading-relaxed">
+              3. <strong className="text-slate-200">Validation Google :</strong> Sur un compte AdMob récent, Google met parfois jusqu'à 24-48h pour délivrer des annonces réelles payantes.
+            </p>
           </div>
 
           {/* Boutons Actions */}
@@ -161,10 +201,10 @@ export const AdMobSettingsModal: React.FC<AdMobSettingsModalProps> = ({
               {isSaved ? (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Enregistré !</span>
+                  <span>Enregistré avec succès !</span>
                 </>
               ) : (
-                <span>Enregistrer</span>
+                <span>Enregistrer les identifiants</span>
               )}
             </button>
 
@@ -172,7 +212,7 @@ export const AdMobSettingsModal: React.FC<AdMobSettingsModalProps> = ({
               type="button"
               onClick={handleReset}
               className="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700"
-              title="Réinitialiser avec les identifiants fournis"
+              title="Réinitialiser avec les identifiants par défaut"
             >
               <RotateCcw className="w-4 h-4" />
             </button>

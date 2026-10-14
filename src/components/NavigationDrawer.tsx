@@ -313,9 +313,12 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                     </div>
                     <div>
                       <div className="text-xs font-semibold text-slate-200">Google AdMob</div>
-                      <div className="text-[11px] text-slate-400">Bannière & Interstitiel configurés</div>
+                      <div className="text-[11px] text-slate-400">Bannière (#3286634079) & Interstitiel</div>
                     </div>
                   </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    Actif
+                  </span>
                 </button>
               )}
             </div>

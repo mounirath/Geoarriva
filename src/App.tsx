@@ -301,6 +301,13 @@ export default function App() {
     }
 
     setSimulatedSpeed(null);
+
+    // Déclencher l'interstitiel AdMob après un trajet ou après l'alarme d'arrivée
+    if (wasAlarming) {
+      setTimeout(() => {
+        adMobService.showInterstitial(true);
+      }, 700);
+    }
   }, [stopWatch, isAlarmActive]);
 
   // Définir la destination depuis la carte
