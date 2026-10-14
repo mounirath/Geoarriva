@@ -509,6 +509,35 @@ export default function App() {
     }
   };
 
+  // Activer la position GPS de démonstration si le GPS réel n'est pas disponible ou refusé
+  const handleEnableDemoLocation = useCallback(() => {
+    const demoPos: Coordinates = { lat: 48.8566, lng: 2.3522 };
+    setSimulatedLocation(demoPos);
+    setIsSimulating(true);
+    setGpsNotification({
+      message:
+        lang === 'ar'
+          ? 'تم تفعيل موقع GPS التجريبي بنجاح'
+          : lang === 'en'
+          ? 'Demo GPS Position Activated'
+          : 'Position GPS de test activée (Paris)',
+      type: 'success',
+    });
+    setTimeout(() => setGpsNotification(null), 3000);
+  }, [lang]);
+
+  const handleRequestLocation = useCallback(async () => {
+    try {
+      await requestLocation();
+    } catch (err: any) {
+      console.warn('GPS request failed:', err);
+      // Si la permission est refusée ou non disponible, proposer le mode démo ou ouvrir modal
+      if (err?.code === 1 || err?.code === -1 || err?.code === 2) {
+        setIsBackgroundModalOpen(true);
+      }
+    }
+  }, [requestLocation]);
+
   // Avancer manuellement d'un pas vers l'arrivée (Test)
   const handleSimulateStep = () => {
     alertSystem.unlockAudio();
@@ -812,6 +841,9 @@ export default function App() {
               onOpenGpsDetails={() => setIsGpsDetailsOpen(true)}
               activeBusTrace={activeBusTrace}
               onClearBusTrace={() => setActiveBusTrace(null)}
+              onRequestLocation={handleRequestLocation}
+              isGpsLoading={isGpsLoading}
+              onEnableDemoLocation={handleEnableDemoLocation}
             />
           ) : (
             <LeafletMapComponent
@@ -827,6 +859,9 @@ export default function App() {
               onOpenGpsDetails={() => setIsGpsDetailsOpen(true)}
               activeBusTrace={activeBusTrace}
               onClearBusTrace={() => setActiveBusTrace(null)}
+              onRequestLocation={handleRequestLocation}
+              isGpsLoading={isGpsLoading}
+              onEnableDemoLocation={handleEnableDemoLocation}
             />
           )}
         </main>
@@ -943,7 +978,7 @@ export default function App() {
           onRequestLocation={() => requestLocation()}
           onOpenBackgroundModal={() => setIsBackgroundModalOpen(true)}
           onCenterMap={() => {
-            // Déclenché depuis la modal
+            setIsGpsDetailsOpen(false);
           }}
           t={t}
           lang={lang}

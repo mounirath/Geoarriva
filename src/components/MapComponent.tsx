@@ -13,6 +13,9 @@ import {
   EyeOff,
   Bus,
   X,
+  Loader2,
+  MapPin,
+  Sparkles,
 } from 'lucide-react';
 import { Translations } from '../utils/i18n';
 import { BusTraceRecord } from '../services/BusTraceService';
@@ -42,6 +45,9 @@ interface MapComponentProps {
   onOpenGpsDetails?: () => void;
   activeBusTrace?: BusTraceRecord | null;
   onClearBusTrace?: () => void;
+  onRequestLocation?: () => void;
+  isGpsLoading?: boolean;
+  onEnableDemoLocation?: () => void;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
@@ -57,6 +63,9 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   onOpenGpsDetails,
   activeBusTrace,
   onClearBusTrace,
+  onRequestLocation,
+  isGpsLoading,
+  onEnableDemoLocation,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -319,33 +328,73 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     prevTrackingRef.current = isTracking;
   }, [isTracking, userLocation, destination]);
 
-  // Mise à jour du marqueur de position utilisateur
+  // Mise à jour du marqueur de position utilisateur GPS
   useEffect(() => {
-    if (!mapInstanceRef.current || !userLocation) return;
+    if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
 
-    // Icône personnalisée HTML pour l'utilisateur (pulsation bleue lumineuse)
+    // Si pas de localisation, nettoyer les calques
+    if (!userLocation) {
+      if (userMarkerRef.current) {
+        map.removeLayer(userMarkerRef.current);
+        userMarkerRef.current = null;
+      }
+      if (userAccuracyCircleRef.current) {
+        map.removeLayer(userAccuracyCircleRef.current);
+        userAccuracyCircleRef.current = null;
+      }
+      return;
+    }
+
+    // Icône personnalisée HTML haute visibilité avec balise radar et badge descriptif
     const userHtml = `
-      <div class="relative flex items-center justify-center w-7 h-7">
-        <div class="absolute w-7 h-7 rounded-full bg-blue-500/30 user-pulse-marker"></div>
-        <div class="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-md shadow-blue-500/50"></div>
+      <div class="relative flex flex-col items-center select-none cursor-pointer">
+        <div class="bg-blue-600/95 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full shadow-lg border border-white/90 whitespace-nowrap mb-1 tracking-wide backdrop-blur-md flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+          <span>Position GPS</span>
+        </div>
+        <div class="relative flex items-center justify-center w-8 h-8">
+          <div class="absolute w-8 h-8 rounded-full bg-blue-500/30 user-pulse-marker"></div>
+          <div class="absolute w-7 h-7 rounded-full bg-sky-400/50 gps-beacon-ring"></div>
+          <div class="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-xl shadow-blue-500/80"></div>
+        </div>
       </div>
     `;
 
     const userIcon = L.divIcon({
       html: userHtml,
       className: 'bg-transparent',
-      iconSize: [28, 28],
-      iconAnchor: [14, 14],
+      iconSize: [110, 48],
+      iconAnchor: [55, 40],
     });
+
+    const popupHtml = `
+      <div style="font-family: inherit; font-size: 12px; min-width: 180px; padding: 2px;">
+        <div style="font-weight: 800; color: #2563eb; display: flex; align-items: center; gap: 4px; font-size: 13px;">
+          📍 Position GPS actuelle
+        </div>
+        <div style="margin-top: 4px; font-family: monospace; font-size: 11px; color: #1e293b; background: #f1f5f9; padding: 4px 6px; border-radius: 6px; border: 1px solid #e2e8f0;">
+          ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}
+        </div>
+        ${
+          userAccuracy
+            ? `<div style="margin-top: 4px; font-size: 11px; color: #64748b;">Précision estimée : <b style="color: #0f172a;">±${Math.round(userAccuracy)} m</b></div>`
+            : ''
+        }
+      </div>
+    `;
 
     if (!userMarkerRef.current) {
       userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], {
         icon: userIcon,
         zIndexOffset: 1000,
-      }).addTo(map);
+      })
+        .addTo(map)
+        .bindPopup(popupHtml);
     } else {
+      userMarkerRef.current.setIcon(userIcon);
       userMarkerRef.current.setLatLng([userLocation.lat, userLocation.lng]);
+      userMarkerRef.current.setPopupContent(popupHtml);
     }
 
     // Cercle de précision GPS
@@ -354,16 +403,19 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         userAccuracyCircleRef.current = L.circle([userLocation.lat, userLocation.lng], {
           radius: Math.min(userAccuracy, 400),
           color: '#3b82f6',
-          weight: 1,
-          opacity: 0.4,
+          weight: 1.5,
+          opacity: 0.5,
           fillColor: '#60a5fa',
-          fillOpacity: 0.1,
-          dashArray: '3, 6',
+          fillOpacity: 0.12,
+          dashArray: '4, 6',
         }).addTo(map);
       } else {
         userAccuracyCircleRef.current.setLatLng([userLocation.lat, userLocation.lng]);
         userAccuracyCircleRef.current.setRadius(Math.min(userAccuracy, 400));
       }
+    } else if (userAccuracyCircleRef.current) {
+      map.removeLayer(userAccuracyCircleRef.current);
+      userAccuracyCircleRef.current = null;
     }
   }, [userLocation, userAccuracy]);
 
@@ -552,13 +604,19 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   // Actions de caméra
   const handleRecenterUser = () => {
     if (!mapInstanceRef.current || !userLocation) {
-      onOpenGpsDetails?.();
+      if (onRequestLocation) {
+        onRequestLocation();
+      } else {
+        onOpenGpsDetails?.();
+      }
       return;
     }
     mapInstanceRef.current.flyTo([userLocation.lat, userLocation.lng], 16, {
-      duration: 0.8,
+      duration: 1.0,
     });
-    onOpenGpsDetails?.();
+    if (userMarkerRef.current) {
+      userMarkerRef.current.openPopup();
+    }
   };
 
   const handleRecenterDestination = () => {
@@ -693,16 +751,78 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       )}
 
 
+      {/* Pastille flottante de position GPS sur la carte */}
+      <div className="absolute top-20 left-3 z-[400] max-w-[85%] sm:max-w-sm pointer-events-auto animate-fade-in">
+        {userLocation ? (
+          <button
+            type="button"
+            onClick={handleRecenterUser}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-white backdrop-blur-md border border-blue-500/50 shadow-xl text-xs transition-all active:scale-95 group"
+            title="Position GPS active · Cliquer pour recentrer"
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
+            <span className="font-semibold text-slate-200 truncate font-mono text-[11px]">
+              📍 {userLocation.lat.toFixed(5)}, {userLocation.lng.toFixed(5)}
+            </span>
+            {userAccuracy && (
+              <span className="text-[10px] text-blue-300 font-mono bg-blue-500/20 px-1.5 py-0.5 rounded-md shrink-0 border border-blue-500/30">
+                ±{Math.round(userAccuracy)}m
+              </span>
+            )}
+            <Locate className="w-3.5 h-3.5 text-blue-400 group-hover:rotate-45 transition-transform shrink-0" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => (onRequestLocation ? onRequestLocation() : onOpenGpsDetails?.())}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-amber-950/90 hover:bg-amber-900 text-amber-200 backdrop-blur-md border border-amber-500/50 shadow-xl text-xs transition-all active:scale-95"
+            title="Activer et afficher ma position GPS sur la carte"
+          >
+            {isGpsLoading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400 shrink-0" />
+                <span className="font-semibold text-[11px]">Recherche du signal GPS...</span>
+              </>
+            ) : (
+              <>
+                <Locate className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+                <span className="font-bold text-[11px]">Afficher ma position GPS</span>
+                {onEnableDemoLocation && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEnableDemoLocation();
+                    }}
+                    className="ml-1 text-[10px] bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded-md hover:bg-amber-400 cursor-pointer"
+                    title="Activer la position de test"
+                  >
+                    Démo
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
       {/* Boutons d'actions rapides de carte (ergonomie pouce mobile, au-dessus du tiroir bas) */}
       <div className="absolute right-3.5 bottom-20 sm:bottom-20 z-[400] flex flex-col gap-2 pointer-events-auto">
         {/* Recentrer sur ma position */}
         <button
           onClick={handleRecenterUser}
-          disabled={!userLocation}
-          title={t.locateMe}
-          className="w-11 h-11 rounded-2xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-xl flex items-center justify-center active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
+          type="button"
+          title={userLocation ? t.locateMe : 'Activer et afficher ma position GPS'}
+          className={`w-11 h-11 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center active:scale-95 transition-all ${
+            userLocation
+              ? 'bg-slate-900/90 text-amber-400 border-slate-700/80 hover:bg-slate-800'
+              : 'bg-blue-600/95 hover:bg-blue-500 text-white border-blue-400 shadow-blue-500/40 animate-pulse'
+          }`}
         >
-          <Locate className="w-5 h-5 text-amber-400" />
+          {isGpsLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+          ) : (
+            <Locate className="w-5 h-5" />
+          )}
         </button>
 
         {/* Recentrer sur destination (si définie) */}

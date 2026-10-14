@@ -20,6 +20,7 @@ import {
   EyeOff,
   Bus,
   X,
+  Loader2,
 } from 'lucide-react';
 import { Translations } from '../utils/i18n';
 import { BusTraceRecord } from '../services/BusTraceService';
@@ -37,6 +38,9 @@ interface GoogleMapComponentProps {
   onOpenGpsDetails?: () => void;
   activeBusTrace?: BusTraceRecord | null;
   onClearBusTrace?: () => void;
+  onRequestLocation?: () => void;
+  isGpsLoading?: boolean;
+  onEnableDemoLocation?: () => void;
 }
 
 // Composant Overlay pour le cercle de rayon d'alerte (Geofence)
@@ -321,6 +325,8 @@ const MapCameraControls: React.FC<{
   onToggleMapType: () => void;
   t: Translations;
   onOpenGpsDetails?: () => void;
+  onRequestLocation?: () => void;
+  isGpsLoading?: boolean;
 }> = ({
   userLocation,
   destination,
@@ -330,17 +336,22 @@ const MapCameraControls: React.FC<{
   onToggleMapType,
   t,
   onOpenGpsDetails,
+  onRequestLocation,
+  isGpsLoading,
 }) => {
   const map = useMap();
 
   const handleRecenterUser = () => {
     if (!map || !userLocation) {
-      onOpenGpsDetails?.();
+      if (onRequestLocation) {
+        onRequestLocation();
+      } else {
+        onOpenGpsDetails?.();
+      }
       return;
     }
     map.panTo(userLocation);
     map.setZoom(16);
-    onOpenGpsDetails?.();
   };
 
   const handleRecenterDestination = () => {
@@ -379,12 +390,19 @@ const MapCameraControls: React.FC<{
         {/* Recentrer sur ma position */}
         <button
           onClick={handleRecenterUser}
-          disabled={!userLocation}
           type="button"
-          title={t.locateMe}
-          className="w-11 h-11 rounded-2xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-xl flex items-center justify-center active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
+          title={userLocation ? t.locateMe : 'Activer et afficher ma position GPS'}
+          className={`w-11 h-11 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center active:scale-95 transition-all ${
+            userLocation
+              ? 'bg-slate-900/90 text-amber-400 border-slate-700/80 hover:bg-slate-800'
+              : 'bg-blue-600/95 hover:bg-blue-500 text-white border-blue-400 shadow-blue-500/40 animate-pulse'
+          }`}
         >
-          <Locate className="w-5 h-5 text-amber-400" />
+          {isGpsLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+          ) : (
+            <Locate className="w-5 h-5" />
+          )}
         </button>
 
         {/* Recentrer sur destination (si définie) */}
@@ -540,6 +558,9 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   onOpenGpsDetails,
   activeBusTrace,
   onClearBusTrace,
+  onRequestLocation,
+  isGpsLoading,
+  onEnableDemoLocation,
 }) => {
   const [mapTypeId, setMapTypeId] = useState<string>('roadmap');
   const [showRouteLine, setShowRouteLine] = useState<boolean>(true);
@@ -582,12 +603,19 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
         className="w-full h-full"
       >
-        {/* Marqueur de position actuelle utilisateur (Pulsation lumineuse) */}
+        {/* Marqueur de position actuelle utilisateur (Pulsation lumineuse & balise) */}
         {userLocation && (
           <AdvancedMarker position={userLocation} title={t.locateMe}>
-            <div className="relative flex items-center justify-center w-7 h-7">
-              <div className="absolute w-7 h-7 rounded-full bg-blue-500/30 user-pulse-marker" />
-              <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-md shadow-blue-500/50" />
+            <div className="relative flex flex-col items-center select-none cursor-pointer">
+              <div className="bg-blue-600/95 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full shadow-lg border border-white/90 whitespace-nowrap mb-1 tracking-wide backdrop-blur-md flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+                <span>Position GPS</span>
+              </div>
+              <div className="relative flex items-center justify-center w-8 h-8">
+                <div className="absolute w-8 h-8 rounded-full bg-blue-500/30 user-pulse-marker" />
+                <div className="absolute w-7 h-7 rounded-full bg-sky-400/50 gps-beacon-ring" />
+                <div className="w-4 h-4 rounded-full bg-blue-500 border-2 border-white shadow-xl shadow-blue-500/80" />
+              </div>
             </div>
           </AdvancedMarker>
         )}
@@ -666,8 +694,64 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           }
           t={t}
           onOpenGpsDetails={onOpenGpsDetails}
+          onRequestLocation={onRequestLocation}
+          isGpsLoading={isGpsLoading}
         />
       </Map>
+
+      {/* Pastille flottante de position GPS sur Google Maps */}
+      <div className="absolute top-20 left-3 z-[400] max-w-[85%] sm:max-w-sm pointer-events-auto animate-fade-in">
+        {userLocation ? (
+          <button
+            type="button"
+            onClick={onOpenGpsDetails}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-slate-900/90 hover:bg-slate-800 text-white backdrop-blur-md border border-blue-500/50 shadow-xl text-xs transition-all active:scale-95 group"
+            title="Position GPS active · Cliquer pour détails et recentrage"
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse shrink-0" />
+            <span className="font-semibold text-slate-200 truncate font-mono text-[11px]">
+              📍 {userLocation.lat.toFixed(5)}, {userLocation.lng.toFixed(5)}
+            </span>
+            {userAccuracy && (
+              <span className="text-[10px] text-blue-300 font-mono bg-blue-500/20 px-1.5 py-0.5 rounded-md shrink-0 border border-blue-500/30">
+                ±{Math.round(userAccuracy)}m
+              </span>
+            )}
+            <Locate className="w-3.5 h-3.5 text-blue-400 group-hover:rotate-45 transition-transform shrink-0" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => (onRequestLocation ? onRequestLocation() : onOpenGpsDetails?.())}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-amber-950/90 hover:bg-amber-900 text-amber-200 backdrop-blur-md border border-amber-500/50 shadow-xl text-xs transition-all active:scale-95"
+            title="Activer et afficher ma position GPS sur la carte"
+          >
+            {isGpsLoading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400 shrink-0" />
+                <span className="font-semibold text-[11px]">Recherche du signal GPS...</span>
+              </>
+            ) : (
+              <>
+                <Locate className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+                <span className="font-bold text-[11px]">Afficher ma position GPS</span>
+                {onEnableDemoLocation && (
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEnableDemoLocation();
+                    }}
+                    className="ml-1 text-[10px] bg-amber-500 text-slate-950 font-extrabold px-1.5 py-0.5 rounded-md hover:bg-amber-400 cursor-pointer"
+                    title="Activer la position de test"
+                  >
+                    Démo
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+        )}
+      </div>
 
       {/* Bandeau d'information du tracé de ligne de bus sélectionné */}
       {activeBusTrace && (

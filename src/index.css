@@ -30,6 +30,21 @@
   animation: userPulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
 
+@keyframes gpsBeaconRing {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.gps-beacon-ring {
+  animation: gpsBeaconRing 1.8s infinite cubic-bezier(0.1, 0.8, 0.3, 1);
+}
+
 /* Custom pulsing alert ring for destination */
 @keyframes alertPulseRing {
   0% {
