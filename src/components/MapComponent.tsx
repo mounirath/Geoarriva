@@ -1,8 +1,21 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
-import { Coordinates } from '../utils/geo';
-import { Navigation, Locate, Eye, Map as MapIcon, Layers } from 'lucide-react';
+import { Coordinates, formatDistance, estimateRemainingTime } from '../utils/geo';
+import { routingService, RouteResult } from '../services/RoutingService';
+import {
+  Navigation,
+  Locate,
+  Eye,
+  Layers,
+  Route,
+  Compass,
+  ArrowRight,
+  EyeOff,
+  Bus,
+  X,
+} from 'lucide-react';
 import { Translations } from '../utils/i18n';
+import { BusTraceRecord } from '../services/BusTraceService';
 
 // Clé API CARTO Basemaps officielle configurée
 export const CARTO_API_KEY =
@@ -27,6 +40,8 @@ interface MapComponentProps {
   distanceToDestination: number | null;
   t: Translations;
   onOpenGpsDetails?: () => void;
+  activeBusTrace?: BusTraceRecord | null;
+  onClearBusTrace?: () => void;
 }
 
 export const MapComponent: React.FC<MapComponentProps> = ({
@@ -40,6 +55,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   distanceToDestination,
   t,
   onOpenGpsDetails,
+  activeBusTrace,
+  onClearBusTrace,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -47,10 +64,27 @@ export const MapComponent: React.FC<MapComponentProps> = ({
   const userAccuracyCircleRef = useRef<L.Circle | null>(null);
   const destinationMarkerRef = useRef<L.Marker | null>(null);
   const radiusCircleRef = useRef<L.Circle | null>(null);
-  const connectingLineRef = useRef<L.Polyline | null>(null);
+
+  // Calques de tracé de trajet
+  const routeGlowLineRef = useRef<L.Polyline | null>(null);
+  const routeCoreLineRef = useRef<L.Polyline | null>(null);
+  const traveledPathLineRef = useRef<L.Polyline | null>(null);
+  const busTraceGlowLineRef = useRef<L.Polyline | null>(null);
+  const busTraceCoreLineRef = useRef<L.Polyline | null>(null);
+  const busTraceStartMarkerRef = useRef<L.Marker | null>(null);
+  const busTraceEndMarkerRef = useRef<L.Marker | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
-  const [mapStyle, setMapStyle] = React.useState<'voyager' | 'dark'>('voyager');
+
+  const [mapStyle, setMapStyle] = useState<'voyager' | 'dark'>('voyager');
+  const [showRouteLine, setShowRouteLine] = useState<boolean>(true);
+  const [routeMode, setRouteMode] = useState<'road' | 'direct'>('road');
+  const [routeData, setRouteData] = useState<RouteResult | null>(null);
+  const [isRouteLoading, setIsRouteLoading] = useState<boolean>(false);
+
+  // Historique des points parcourus pendant le suivi actif
+  const traveledCoordsRef = useRef<Coordinates[]>([]);
   const hasAutoCenteredRef = useRef<boolean>(false);
+  const prevTrackingRef = useRef<boolean>(false);
 
   // Initialisation de la carte Leaflet
   useEffect(() => {
@@ -64,7 +98,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     const map = L.map(mapContainerRef.current, {
       center: defaultCenter,
       zoom: 15,
-      zoomControl: false, // On utilise nos propres boutons ou on le place proprement
+      zoomControl: false,
       attributionControl: false,
     });
 
@@ -99,7 +133,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     };
   }, []);
 
-  // Changement de style de carte (Voyager vs Dark Matter avec clé API CARTO)
+  // Changement de style de carte (Voyager vs Dark)
   useEffect(() => {
     if (!mapInstanceRef.current || !tileLayerRef.current) return;
 
@@ -112,6 +146,178 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       subdomains: 'abcd',
     }).addTo(mapInstanceRef.current);
   }, [mapStyle]);
+
+  // Affichage du tracé historique de ligne de bus sélectionné
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    // Nettoyer les anciens calques du tracé de bus
+    if (busTraceGlowLineRef.current) {
+      map.removeLayer(busTraceGlowLineRef.current);
+      busTraceGlowLineRef.current = null;
+    }
+    if (busTraceCoreLineRef.current) {
+      map.removeLayer(busTraceCoreLineRef.current);
+      busTraceCoreLineRef.current = null;
+    }
+    if (busTraceStartMarkerRef.current) {
+      map.removeLayer(busTraceStartMarkerRef.current);
+      busTraceStartMarkerRef.current = null;
+    }
+    if (busTraceEndMarkerRef.current) {
+      map.removeLayer(busTraceEndMarkerRef.current);
+      busTraceEndMarkerRef.current = null;
+    }
+
+    if (!activeBusTrace) return;
+
+    const coords =
+      activeBusTrace.coordinates && activeBusTrace.coordinates.length >= 2
+        ? activeBusTrace.coordinates
+        : [activeBusTrace.startPoint, activeBusTrace.destinationPoint];
+
+    const latlngs: [number, number][] = coords.map((c) => [c.lat, c.lng]);
+    const busColor = activeBusTrace.color || '#2563eb';
+
+    // 1. Halo lumineux
+    busTraceGlowLineRef.current = L.polyline(latlngs, {
+      color: busColor,
+      weight: 12,
+      opacity: 0.35,
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(map);
+
+    // 2. Ligne centrale haute visibilité avec tirets
+    busTraceCoreLineRef.current = L.polyline(latlngs, {
+      color: busColor,
+      weight: 5.5,
+      opacity: 0.95,
+      lineCap: 'round',
+      lineJoin: 'round',
+      dashArray: '8, 8',
+    }).addTo(map);
+
+    // 3. Marqueur arrêt de départ
+    const startIcon = L.divIcon({
+      className: 'bus-trace-pin-start',
+      html: `<div style="background-color: ${busColor}; color: white; border-radius: 9999px; padding: 4px 8px; font-weight: 800; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; border: 2px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.5); white-space: nowrap;"><span style="background: white; color: ${busColor}; border-radius: 4px; padding: 1px 4px; font-size: 10px;">${activeBusTrace.busLine}</span> Départ</div>`,
+      iconSize: [86, 28],
+      iconAnchor: [43, 14],
+    });
+    busTraceStartMarkerRef.current = L.marker(
+      [activeBusTrace.startPoint.lat, activeBusTrace.startPoint.lng],
+      { icon: startIcon }
+    ).addTo(map);
+
+    // 4. Marqueur terminus
+    const endIcon = L.divIcon({
+      className: 'bus-trace-pin-end',
+      html: `<div style="background-color: #dc2626; color: white; border-radius: 9999px; padding: 4px 8px; font-weight: 800; font-size: 11px; display: inline-flex; align-items: center; gap: 4px; border: 2px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.5); white-space: nowrap;"><span style="background: white; color: #dc2626; border-radius: 4px; padding: 1px 4px; font-size: 10px;">🏁</span> Terminus</div>`,
+      iconSize: [92, 28],
+      iconAnchor: [46, 14],
+    });
+    busTraceEndMarkerRef.current = L.marker(
+      [activeBusTrace.destinationPoint.lat, activeBusTrace.destinationPoint.lng],
+      { icon: endIcon }
+    ).addTo(map);
+
+    // Cadrage automatique de la vue sur l'intégralité du tracé de bus
+    const bounds = L.latLngBounds(latlngs);
+    map.fitBounds(bounds, {
+      paddingTopLeft: [70, 40],
+      paddingBottomRight: [40, 160],
+      maxZoom: 16,
+    });
+  }, [activeBusTrace]);
+
+  // Réinitialiser ou accumuler l'historique du trajet parcouru
+  useEffect(() => {
+    if (!isTracking) {
+      traveledCoordsRef.current = [];
+      if (traveledPathLineRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(traveledPathLineRef.current);
+        traveledPathLineRef.current = null;
+      }
+    } else if (userLocation) {
+      const prev = traveledCoordsRef.current;
+      const last = prev[prev.length - 1];
+      if (!last || Math.abs(last.lat - userLocation.lat) > 0.00008 || Math.abs(last.lng - userLocation.lng) > 0.00008) {
+        traveledCoordsRef.current = [...prev, userLocation];
+      }
+    }
+  }, [isTracking, userLocation]);
+
+  // Mise à jour du tracé de l'historique parcouru (Breadcrumbs)
+  useEffect(() => {
+    if (!mapInstanceRef.current || !isTracking || traveledCoordsRef.current.length < 2) {
+      if (traveledPathLineRef.current && mapInstanceRef.current) {
+        mapInstanceRef.current.removeLayer(traveledPathLineRef.current);
+        traveledPathLineRef.current = null;
+      }
+      return;
+    }
+
+    const map = mapInstanceRef.current;
+    const latlngs: [number, number][] = traveledCoordsRef.current.map((c) => [c.lat, c.lng]);
+
+    if (!traveledPathLineRef.current) {
+      traveledPathLineRef.current = L.polyline(latlngs, {
+        color: '#10b981', // Vert émeraude lumineux pour le parcours déjà réalisé
+        weight: 3.5,
+        opacity: 0.8,
+        dashArray: '2, 6',
+      }).addTo(map);
+    } else {
+      traveledPathLineRef.current.setLatLngs(latlngs);
+    }
+  }, [isTracking, userLocation]);
+
+  // Calcul du tracé de route (OSM/OSRM ou direct)
+  useEffect(() => {
+    if (!userLocation || !destination) {
+      setRouteData(null);
+      return;
+    }
+
+    let isMounted = true;
+    setIsRouteLoading(true);
+
+    routingService
+      .getRoute(userLocation, destination, routeMode === 'direct')
+      .then((res) => {
+        if (isMounted) {
+          setRouteData(res);
+          setIsRouteLoading(false);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsRouteLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userLocation?.lat, userLocation?.lng, destination?.lat, destination?.lng, routeMode]);
+
+  // Cadrage automatique de la caméra dès que le suivi est lancé
+  useEffect(() => {
+    if (isTracking && !prevTrackingRef.current && userLocation && destination && mapInstanceRef.current) {
+      const bounds = L.latLngBounds([
+        [userLocation.lat, userLocation.lng],
+        [destination.lat, destination.lng],
+      ]);
+      mapInstanceRef.current.fitBounds(bounds, {
+        paddingTopLeft: [70, 40],
+        paddingBottomRight: [40, 160],
+        maxZoom: 16,
+      });
+    }
+    prevTrackingRef.current = isTracking;
+  }, [isTracking, userLocation, destination]);
 
   // Mise à jour du marqueur de position utilisateur
   useEffect(() => {
@@ -161,7 +367,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     }
   }, [userLocation, userAccuracy]);
 
-  // Mise à jour du marqueur de destination et du cercle de rayon d'alerte
+  // Mise à jour du marqueur de destination et du cercle d'alerte
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -175,10 +381,6 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       if (radiusCircleRef.current) {
         map.removeLayer(radiusCircleRef.current);
         radiusCircleRef.current = null;
-      }
-      if (connectingLineRef.current) {
-        map.removeLayer(connectingLineRef.current);
-        connectingLineRef.current = null;
       }
       return;
     }
@@ -206,7 +408,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     if (!destinationMarkerRef.current) {
       const marker = L.marker([destination.lat, destination.lng], {
         icon: destIcon,
-        draggable: true, // L'utilisateur peut affiner l'épingle en la glissant
+        draggable: !isTracking, // Verrouillé pendant le suivi actif pour éviter les erreurs de manipulation
         zIndexOffset: 900,
       }).addTo(map);
 
@@ -248,29 +450,93 @@ export const MapComponent: React.FC<MapComponentProps> = ({
       radiusCircleRef.current.setRadius(alertRadius);
       radiusCircleRef.current.setStyle(circleOptions);
     }
+  }, [destination, alertRadius, distanceToDestination, isTracking, onSelectDestination]);
 
-    // Trait reliant la position de l'utilisateur à la destination
-    if (userLocation) {
-      const lineCoordinates: [number, number][] = [
-        [userLocation.lat, userLocation.lng],
-        [destination.lat, destination.lng],
-      ];
+  // Tracé de la ligne de trajet (Glow + Core animé vers la destination)
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
 
-      const lineOptions: L.PolylineOptions = {
-        color: isInsideRadius ? '#ef4444' : '#38bdf8',
-        weight: 3,
-        opacity: 0.7,
-        dashArray: '4, 8',
-      };
-
-      if (!connectingLineRef.current) {
-        connectingLineRef.current = L.polyline(lineCoordinates, lineOptions).addTo(map);
-      } else {
-        connectingLineRef.current.setLatLngs(lineCoordinates);
-        connectingLineRef.current.setStyle(lineOptions);
+    // Si pas de destination ou si désactivé par l'utilisateur
+    if (!destination || !userLocation || !showRouteLine) {
+      if (routeGlowLineRef.current) {
+        map.removeLayer(routeGlowLineRef.current);
+        routeGlowLineRef.current = null;
       }
+      if (routeCoreLineRef.current) {
+        map.removeLayer(routeCoreLineRef.current);
+        routeCoreLineRef.current = null;
+      }
+      return;
     }
-  }, [destination, alertRadius, userLocation, distanceToDestination, onSelectDestination]);
+
+    const isInsideRadius =
+      distanceToDestination !== null && distanceToDestination <= alertRadius;
+
+    // Points de coordonnées : itinéraire calculé ou ligne directe
+    const points: [number, number][] =
+      routeData && routeData.coordinates.length >= 2
+        ? routeData.coordinates.map((c) => [c.lat, c.lng])
+        : [
+            [userLocation.lat, userLocation.lng],
+            [destination.lat, destination.lng],
+          ];
+
+    // 1. Ligne de halo / Glow (dessous)
+    const glowColor = isInsideRadius ? '#ef4444' : '#0284c7';
+    const glowWeight = isTracking ? 8 : 5;
+    const glowOpacity = isTracking ? 0.45 : 0.25;
+
+    if (!routeGlowLineRef.current) {
+      routeGlowLineRef.current = L.polyline(points, {
+        color: glowColor,
+        weight: glowWeight,
+        opacity: glowOpacity,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+    } else {
+      routeGlowLineRef.current.setLatLngs(points);
+      routeGlowLineRef.current.setStyle({
+        color: glowColor,
+        weight: glowWeight,
+        opacity: glowOpacity,
+      });
+    }
+
+    // 2. Ligne centrale active avec animation de flux
+    const coreColor = isInsideRadius ? '#f87171' : '#38bdf8';
+    const coreWeight = isTracking ? 4.5 : 3;
+    const coreDash = isTracking ? '8, 12' : '4, 8';
+
+    if (!routeCoreLineRef.current) {
+      routeCoreLineRef.current = L.polyline(points, {
+        color: coreColor,
+        weight: coreWeight,
+        opacity: 0.95,
+        dashArray: coreDash,
+        className: isTracking ? 'route-trace-animated route-trace-glow' : '',
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+    } else {
+      routeCoreLineRef.current.setLatLngs(points);
+      routeCoreLineRef.current.setStyle({
+        color: coreColor,
+        weight: coreWeight,
+        dashArray: coreDash,
+        className: isTracking ? 'route-trace-animated route-trace-glow' : '',
+      });
+    }
+  }, [
+    destination,
+    userLocation,
+    showRouteLine,
+    routeData,
+    isTracking,
+    distanceToDestination,
+    alertRadius,
+  ]);
 
   // Auto-centrage à la première détection de position GPS
   useEffect(() => {
@@ -283,7 +549,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     }
   }, [userLocation]);
 
-  // Actions d'ajustement de vue
+  // Actions de caméra
   const handleRecenterUser = () => {
     if (!mapInstanceRef.current || !userLocation) {
       onOpenGpsDetails?.();
@@ -302,7 +568,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     });
   };
 
-  const handleFitBounds = () => {
+  const handleFitBounds = useCallback(() => {
     if (!mapInstanceRef.current) return;
     const points: [number, number][] = [];
     if (userLocation) points.push([userLocation.lat, userLocation.lng]);
@@ -311,13 +577,24 @@ export const MapComponent: React.FC<MapComponentProps> = ({
     if (points.length >= 2) {
       const bounds = L.latLngBounds(points);
       mapInstanceRef.current.fitBounds(bounds, {
-        padding: [60, 60],
-        maxZoom: 17,
+        paddingTopLeft: [80, 50],
+        paddingBottomRight: [50, 180],
+        maxZoom: 16,
       });
     } else if (points.length === 1) {
       mapInstanceRef.current.flyTo(points[0], 16);
     }
+  }, [userLocation, destination]);
+
+  const toggleRouteMode = () => {
+    setRouteMode((prev) => (prev === 'road' ? 'direct' : 'road'));
   };
+
+  const formattedDist = formatDistance(distanceToDestination);
+  const etaText =
+    distanceToDestination !== null
+      ? estimateRemainingTime(distanceToDestination)
+      : null;
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none">
@@ -333,6 +610,88 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           </div>
         </div>
       )}
+
+      {/* Bandeau d'information du tracé actif (Visible quand le suivi est lancé) */}
+      {isTracking && destination && userLocation && showRouteLine && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[400] w-[92%] max-w-sm pointer-events-auto">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-sky-500/40 px-3.5 py-2.5 rounded-2xl shadow-2xl flex items-center justify-between text-xs text-slate-200">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative flex items-center justify-center w-7 h-7 rounded-xl bg-sky-500/20 text-sky-400 shrink-0">
+                <Route className="w-4 h-4 animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-slate-900" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5 font-bold text-sky-300">
+                  <span className="truncate">{t.routeLineTrace}</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-300 font-mono">
+                    {routeMode === 'road' ? 'Route' : 'Direct'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-300 truncate">
+                  {formattedDist.full} · {etaText || t.immediateArrival}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0 ml-2">
+              <button
+                type="button"
+                onClick={toggleRouteMode}
+                title={routeMode === 'road' ? t.directRoute : t.roadRoute}
+                className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 active:scale-95 transition-all text-[10px] font-medium flex items-center gap-1 border border-slate-700/60"
+              >
+                <Compass className="w-3.5 h-3.5 text-amber-400" />
+              </button>
+              <button
+                type="button"
+                onClick={handleFitBounds}
+                title={t.fitView}
+                className="p-1.5 rounded-lg bg-sky-600/30 hover:bg-sky-600/40 text-sky-200 active:scale-95 transition-all border border-sky-500/30"
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bandeau d'information du tracé de ligne de bus sélectionné */}
+      {activeBusTrace && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[400] w-[94%] max-w-md pointer-events-auto animate-fade-in">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-amber-500/60 p-3 rounded-2xl shadow-2xl flex items-center justify-between text-xs text-white">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="px-2.5 py-1 rounded-lg text-white font-extrabold text-xs shadow flex items-center justify-center shrink-0 border border-white/20"
+                style={{ backgroundColor: activeBusTrace.color || '#2563eb' }}
+              >
+                {activeBusTrace.busLine}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <div className="font-bold truncate text-white flex items-center gap-1.5">
+                  <span className="truncate">{activeBusTrace.name}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300">
+                    Tracé
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-300 truncate">
+                  {activeBusTrace.startPoint.name} ➔ {activeBusTrace.destinationPoint.name} · {formatDistance(activeBusTrace.distanceMeters).full}
+                </div>
+              </div>
+            </div>
+            {onClearBusTrace && (
+              <button
+                type="button"
+                onClick={onClearBusTrace}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors ml-2 shrink-0 border border-slate-700/80"
+                title={t.clearBusTraceFromMap}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
 
       {/* Boutons d'actions rapides de carte (ergonomie pouce mobile, au-dessus du tiroir bas) */}
       <div className="absolute right-3.5 bottom-20 sm:bottom-20 z-[400] flex flex-col gap-2 pointer-events-auto">
@@ -354,6 +713,25 @@ export const MapComponent: React.FC<MapComponentProps> = ({
             className="w-11 h-11 rounded-2xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-xl flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800"
           >
             <Navigation className="w-5 h-5 text-rose-400" />
+          </button>
+        )}
+
+        {/* Bouton bascule du tracé de ligne */}
+        {destination && userLocation && (
+          <button
+            onClick={() => setShowRouteLine((prev) => !prev)}
+            title={showRouteLine ? t.hideRouteLine : t.showRouteLine}
+            className={`w-11 h-11 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center active:scale-95 transition-all ${
+              showRouteLine
+                ? 'bg-sky-950/90 text-sky-400 border-sky-600/60 shadow-sky-950/50'
+                : 'bg-slate-900/90 text-slate-400 border-slate-700/80 hover:bg-slate-800'
+            }`}
+          >
+            {showRouteLine ? (
+              <Route className="w-5 h-5" />
+            ) : (
+              <EyeOff className="w-5 h-5" />
+            )}
           </button>
         )}
 

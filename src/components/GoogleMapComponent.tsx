@@ -8,9 +8,21 @@ import {
   useMapsLibrary,
   MapMouseEvent,
 } from '@vis.gl/react-google-maps';
-import { Coordinates } from '../utils/geo';
-import { Navigation, Locate, Eye, Layers } from 'lucide-react';
+import { Coordinates, formatDistance, estimateRemainingTime } from '../utils/geo';
+import { routingService, RouteResult } from '../services/RoutingService';
+import {
+  Navigation,
+  Locate,
+  Eye,
+  Layers,
+  Route,
+  Compass,
+  EyeOff,
+  Bus,
+  X,
+} from 'lucide-react';
 import { Translations } from '../utils/i18n';
+import { BusTraceRecord } from '../services/BusTraceService';
 
 interface GoogleMapComponentProps {
   userLocation: Coordinates | null;
@@ -23,6 +35,8 @@ interface GoogleMapComponentProps {
   distanceToDestination: number | null;
   t: Translations;
   onOpenGpsDetails?: () => void;
+  activeBusTrace?: BusTraceRecord | null;
+  onClearBusTrace?: () => void;
 }
 
 // Composant Overlay pour le cercle de rayon d'alerte (Geofence)
@@ -111,41 +125,171 @@ const AccuracyCircleOverlay: React.FC<{
   return null;
 };
 
-// Composant Overlay pour la ligne de trajet direct reliant l'utilisateur à la destination
-const TrajectoryPolyline: React.FC<{
+// Composant Overlay pour la ligne de trajet dynamique reliant l'utilisateur à la destination
+const TrajectoryPolylineOverlay: React.FC<{
   origin: Coordinates;
   destination: Coordinates;
   isInside: boolean;
-}> = ({ origin, destination, isInside }) => {
+  isTracking: boolean;
+  routeMode: 'road' | 'direct';
+  visible: boolean;
+}> = ({ origin, destination, isInside, isTracking, routeMode, visible }) => {
   const map = useMap();
   const mapsLib = useMapsLibrary('maps');
-  const polylineRef = useRef<google.maps.Polyline | null>(null);
+  const glowPolylineRef = useRef<google.maps.Polyline | null>(null);
+  const corePolylineRef = useRef<google.maps.Polyline | null>(null);
+  const traveledPolylineRef = useRef<google.maps.Polyline | null>(null);
+  const traveledPointsRef = useRef<Coordinates[]>([]);
+  const [routeCoords, setRouteCoords] = useState<Coordinates[]>([origin, destination]);
 
+  // Récupérer l'itinéraire calculé
   useEffect(() => {
-    if (!map || !mapsLib) return;
-
-    const polyline = new mapsLib.Polyline({
-      map,
-      path: [origin, destination],
-      strokeColor: isInside ? '#ef4444' : '#38bdf8',
-      strokeOpacity: 0.75,
-      strokeWeight: 3,
-    });
-    polylineRef.current = polyline;
+    let isMounted = true;
+    routingService
+      .getRoute(origin, destination, routeMode === 'direct')
+      .then((res) => {
+        if (isMounted) {
+          setRouteCoords(res.coordinates);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setRouteCoords([origin, destination]);
+        }
+      });
 
     return () => {
-      polyline.setMap(null);
-      polylineRef.current = null;
+      isMounted = false;
     };
-  }, [map, mapsLib]);
+  }, [origin.lat, origin.lng, destination.lat, destination.lng, routeMode]);
+
+  // Historique des positions parcourues
+  useEffect(() => {
+    if (!isTracking) {
+      traveledPointsRef.current = [];
+      if (traveledPolylineRef.current) {
+        traveledPolylineRef.current.setMap(null);
+        traveledPolylineRef.current = null;
+      }
+    } else {
+      const prev = traveledPointsRef.current;
+      const last = prev[prev.length - 1];
+      if (!last || Math.abs(last.lat - origin.lat) > 0.00008 || Math.abs(last.lng - origin.lng) > 0.00008) {
+        traveledPointsRef.current = [...prev, origin];
+      }
+    }
+  }, [isTracking, origin]);
+
+  // Initialisation et mise à jour des polylignes
+  useEffect(() => {
+    if (!map || !mapsLib || !visible) {
+      if (glowPolylineRef.current) {
+        glowPolylineRef.current.setMap(null);
+        glowPolylineRef.current = null;
+      }
+      if (corePolylineRef.current) {
+        corePolylineRef.current.setMap(null);
+        corePolylineRef.current = null;
+      }
+      return;
+    }
+
+    const path = routeCoords.map((c) => ({ lat: c.lat, lng: c.lng }));
+
+    // 1. Halo lumineux
+    const glowColor = isInside ? '#ef4444' : '#0284c7';
+    if (!glowPolylineRef.current) {
+      glowPolylineRef.current = new mapsLib.Polyline({
+        map,
+        path,
+        strokeColor: glowColor,
+        strokeOpacity: isTracking ? 0.45 : 0.25,
+        strokeWeight: isTracking ? 8 : 5,
+        zIndex: 50,
+      });
+    } else {
+      glowPolylineRef.current.setPath(path);
+      glowPolylineRef.current.setOptions({
+        strokeColor: glowColor,
+        strokeOpacity: isTracking ? 0.45 : 0.25,
+        strokeWeight: isTracking ? 8 : 5,
+      });
+    }
+
+    // 2. Ligne centrale active
+    const coreColor = isInside ? '#f87171' : '#38bdf8';
+    if (!corePolylineRef.current) {
+      corePolylineRef.current = new mapsLib.Polyline({
+        map,
+        path,
+        strokeColor: coreColor,
+        strokeOpacity: 0.95,
+        strokeWeight: isTracking ? 4 : 3,
+        zIndex: 60,
+      });
+    } else {
+      corePolylineRef.current.setPath(path);
+      corePolylineRef.current.setOptions({
+        strokeColor: coreColor,
+        strokeWeight: isTracking ? 4 : 3,
+      });
+    }
+
+    // 3. Ligne de progression parcourue (Breadcrumb)
+    if (isTracking && traveledPointsRef.current.length >= 2) {
+      const traveledPath = traveledPointsRef.current.map((c) => ({ lat: c.lat, lng: c.lng }));
+      if (!traveledPolylineRef.current) {
+        traveledPolylineRef.current = new mapsLib.Polyline({
+          map,
+          path: traveledPath,
+          strokeColor: '#10b981',
+          strokeOpacity: 0.8,
+          strokeWeight: 3.5,
+          zIndex: 55,
+        });
+      } else {
+        traveledPolylineRef.current.setPath(traveledPath);
+      }
+    }
+
+    return () => {
+      // Nettoyage géré
+    };
+  }, [map, mapsLib, visible, routeCoords, isInside, isTracking, origin]);
+
+  // Nettoyage au démontage
+  useEffect(() => {
+    return () => {
+      if (glowPolylineRef.current) glowPolylineRef.current.setMap(null);
+      if (corePolylineRef.current) corePolylineRef.current.setMap(null);
+      if (traveledPolylineRef.current) traveledPolylineRef.current.setMap(null);
+    };
+  }, []);
+
+  return null;
+};
+
+// Cadrage automatique de la vue lorsque le suivi démarre
+const AutoFrameOnTracking: React.FC<{
+  userLocation: Coordinates | null;
+  destination: Coordinates | null;
+  isTracking: boolean;
+}> = ({ userLocation, destination, isTracking }) => {
+  const map = useMap();
+  const prevTrackingRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!polylineRef.current) return;
-    polylineRef.current.setPath([origin, destination]);
-    polylineRef.current.setOptions({
-      strokeColor: isInside ? '#ef4444' : '#38bdf8',
-    });
-  }, [origin, destination, isInside]);
+    if (!map || !userLocation || !destination) return;
+    if (isTracking && !prevTrackingRef.current) {
+      if (typeof google !== 'undefined' && google.maps) {
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(userLocation);
+        bounds.extend(destination);
+        map.fitBounds(bounds, { top: 80, right: 50, bottom: 180, left: 50 });
+      }
+    }
+    prevTrackingRef.current = isTracking;
+  }, [map, userLocation, destination, isTracking]);
 
   return null;
 };
@@ -171,11 +315,22 @@ const AutoCenterOnUser: React.FC<{ userLocation: Coordinates | null }> = ({ user
 const MapCameraControls: React.FC<{
   userLocation: Coordinates | null;
   destination: Coordinates | null;
+  showRouteLine: boolean;
+  onToggleRouteLine: () => void;
   mapTypeId: string;
   onToggleMapType: () => void;
   t: Translations;
   onOpenGpsDetails?: () => void;
-}> = ({ userLocation, destination, mapTypeId, onToggleMapType, t, onOpenGpsDetails }) => {
+}> = ({
+  userLocation,
+  destination,
+  showRouteLine,
+  onToggleRouteLine,
+  mapTypeId,
+  onToggleMapType,
+  t,
+  onOpenGpsDetails,
+}) => {
   const map = useMap();
 
   const handleRecenterUser = () => {
@@ -210,7 +365,7 @@ const MapCameraControls: React.FC<{
     }
 
     if (count >= 2) {
-      map.fitBounds(bounds, { top: 70, right: 60, bottom: 180, left: 60 });
+      map.fitBounds(bounds, { top: 80, right: 60, bottom: 180, left: 60 });
     } else if (count === 1 && userLocation) {
       map.panTo(userLocation);
       map.setZoom(16);
@@ -244,6 +399,26 @@ const MapCameraControls: React.FC<{
           </button>
         )}
 
+        {/* Bouton bascule du tracé de ligne */}
+        {destination && userLocation && (
+          <button
+            onClick={onToggleRouteLine}
+            type="button"
+            title={showRouteLine ? t.hideRouteLine : t.showRouteLine}
+            className={`w-11 h-11 rounded-2xl backdrop-blur-md border shadow-xl flex items-center justify-center active:scale-95 transition-all ${
+              showRouteLine
+                ? 'bg-sky-950/90 text-sky-400 border-sky-600/60 shadow-sky-950/50'
+                : 'bg-slate-900/90 text-slate-400 border-slate-700/80 hover:bg-slate-800'
+            }`}
+          >
+            {showRouteLine ? (
+              <Route className="w-5 h-5" />
+            ) : (
+              <EyeOff className="w-5 h-5" />
+            )}
+          </button>
+        )}
+
         {/* Vue globale (utilisateur + destination) */}
         {userLocation && destination && (
           <button
@@ -270,6 +445,88 @@ const MapCameraControls: React.FC<{
   );
 };
 
+// Calque d'affichage du tracé de ligne de bus sélectionné sur Google Maps
+const BusTraceOverlay: React.FC<{
+  trace: BusTraceRecord;
+}> = ({ trace }) => {
+  const map = useMap();
+  const mapsLib = useMapsLibrary('maps');
+  const glowLineRef = useRef<google.maps.Polyline | null>(null);
+  const coreLineRef = useRef<google.maps.Polyline | null>(null);
+
+  useEffect(() => {
+    if (!map || !mapsLib) return;
+
+    const coords =
+      trace.coordinates && trace.coordinates.length >= 2
+        ? trace.coordinates
+        : [trace.startPoint, trace.destinationPoint];
+
+    const path = coords.map((c) => ({ lat: c.lat, lng: c.lng }));
+    const busColor = trace.color || '#2563eb';
+
+    // 1. Halo lumineux
+    glowLineRef.current = new mapsLib.Polyline({
+      map,
+      path,
+      strokeColor: busColor,
+      strokeOpacity: 0.35,
+      strokeWeight: 12,
+    });
+
+    // 2. Ligne centrale haute visibilité
+    coreLineRef.current = new mapsLib.Polyline({
+      map,
+      path,
+      strokeColor: busColor,
+      strokeOpacity: 0.95,
+      strokeWeight: 5.5,
+    });
+
+    // Cadrage automatique de la vue sur l'ensemble du tracé
+    if (path.length >= 2) {
+      const bounds = new google.maps.LatLngBounds();
+      path.forEach((pt) => bounds.extend(pt));
+      map.fitBounds(bounds, { top: 80, right: 50, bottom: 160, left: 50 });
+    }
+
+    return () => {
+      glowLineRef.current?.setMap(null);
+      coreLineRef.current?.setMap(null);
+    };
+  }, [map, mapsLib, trace]);
+
+  return (
+    <>
+      {/* Marqueur arrêt de départ */}
+      <AdvancedMarker
+        position={trace.startPoint}
+        title={`${trace.startPoint.name} (Départ)`}
+      >
+        <div
+          className="px-2.5 py-1 rounded-full text-white font-extrabold text-[11px] shadow-xl flex items-center gap-1.5 border-2 border-white select-none"
+          style={{ backgroundColor: trace.color || '#2563eb' }}
+        >
+          <span className="bg-white text-slate-900 rounded px-1 text-[10px] font-bold">
+            {trace.busLine}
+          </span>
+          <span>Départ</span>
+        </div>
+      </AdvancedMarker>
+
+      {/* Marqueur terminus */}
+      <AdvancedMarker
+        position={trace.destinationPoint}
+        title={`${trace.destinationPoint.name} (Terminus)`}
+      >
+        <div className="px-2.5 py-1 rounded-full bg-rose-600 text-white font-extrabold text-[11px] shadow-xl flex items-center gap-1 border-2 border-white select-none">
+          <span>🏁 Terminus</span>
+        </div>
+      </AdvancedMarker>
+    </>
+  );
+};
+
 export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   userLocation,
   userAccuracy,
@@ -281,8 +538,12 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
   distanceToDestination,
   t,
   onOpenGpsDetails,
+  activeBusTrace,
+  onClearBusTrace,
 }) => {
   const [mapTypeId, setMapTypeId] = useState<string>('roadmap');
+  const [showRouteLine, setShowRouteLine] = useState<boolean>(true);
+  const [routeMode, setRouteMode] = useState<'road' | 'direct'>('road');
 
   const defaultCenter = userLocation || { lat: 48.8566, lng: 2.3522 };
 
@@ -301,6 +562,12 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
     },
     [onSelectDestination]
   );
+
+  const formattedDist = formatDistance(distanceToDestination);
+  const etaText =
+    distanceToDestination !== null
+      ? estimateRemainingTime(distanceToDestination)
+      : null;
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none bg-slate-950">
@@ -362,22 +629,37 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
           />
         )}
 
-        {/* Ligne directe reliant l'utilisateur à la destination */}
+        {/* Ligne de tracé de trajet dynamique reliant l'utilisateur à la destination */}
         {userLocation && destination && (
-          <TrajectoryPolyline
+          <TrajectoryPolylineOverlay
             origin={userLocation}
             destination={destination}
             isInside={isInsideRadius}
+            isTracking={isTracking}
+            routeMode={routeMode}
+            visible={showRouteLine}
           />
         )}
 
+        {/* Cadrage automatique lors du lancement du suivi */}
+        <AutoFrameOnTracking
+          userLocation={userLocation}
+          destination={destination}
+          isTracking={isTracking}
+        />
+
         {/* Auto centrage dès la première réception du signal GPS */}
         <AutoCenterOnUser userLocation={userLocation} />
+
+        {/* Tracé de ligne de bus historique sélectionné */}
+        {activeBusTrace && <BusTraceOverlay trace={activeBusTrace} />}
 
         {/* Boutons de contrôle de la caméra et vue */}
         <MapCameraControls
           userLocation={userLocation}
           destination={destination}
+          showRouteLine={showRouteLine}
+          onToggleRouteLine={() => setShowRouteLine((prev) => !prev)}
           mapTypeId={mapTypeId}
           onToggleMapType={() =>
             setMapTypeId((prev) => (prev === 'roadmap' ? 'hybrid' : 'roadmap'))
@@ -387,12 +669,85 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
         />
       </Map>
 
+      {/* Bandeau d'information du tracé de ligne de bus sélectionné */}
+      {activeBusTrace && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-[94%] max-w-md pointer-events-auto animate-fade-in">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-amber-500/60 p-3 rounded-2xl shadow-2xl flex items-center justify-between text-xs text-white">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div
+                className="px-2.5 py-1 rounded-lg text-white font-extrabold text-xs shadow flex items-center justify-center shrink-0 border border-white/20"
+                style={{ backgroundColor: activeBusTrace.color || '#2563eb' }}
+              >
+                {activeBusTrace.busLine}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <div className="font-bold truncate text-white flex items-center gap-1.5">
+                  <span className="truncate">{activeBusTrace.name}</span>
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300">
+                    Tracé
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-300 truncate">
+                  {activeBusTrace.startPoint.name} ➔ {activeBusTrace.destinationPoint.name} · {formatDistance(activeBusTrace.distanceMeters).full}
+                </div>
+              </div>
+            </div>
+            {onClearBusTrace && (
+              <button
+                type="button"
+                onClick={onClearBusTrace}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors ml-2 shrink-0 border border-slate-700/80"
+                title={t.clearBusTraceFromMap}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Guide visuel d'aide si aucune destination choisie */}
       {!destination && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 pointer-events-none transition-all">
           <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-4 py-2 rounded-full shadow-xl flex items-center gap-2 text-xs font-medium text-slate-200">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
             <span>{t.tapMapToSetDest}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Bandeau d'information du tracé actif (Visible quand le suivi est lancé) */}
+      {isTracking && destination && userLocation && showRouteLine && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-10 w-[92%] max-w-sm pointer-events-auto">
+          <div className="bg-slate-900/90 backdrop-blur-xl border border-sky-500/40 px-3.5 py-2.5 rounded-2xl shadow-2xl flex items-center justify-between text-xs text-slate-200">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative flex items-center justify-center w-7 h-7 rounded-xl bg-sky-500/20 text-sky-400 shrink-0">
+                <Route className="w-4 h-4 animate-pulse" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-slate-900" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-1.5 font-bold text-sky-300">
+                  <span className="truncate">{t.routeLineTrace}</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-sky-500/20 text-sky-300 font-mono">
+                    {routeMode === 'road' ? 'Route' : 'Direct'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-300 truncate">
+                  {formattedDist.full} · {etaText || t.immediateArrival}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1 shrink-0 ml-2">
+              <button
+                type="button"
+                onClick={() => setRouteMode((prev) => (prev === 'road' ? 'direct' : 'road'))}
+                title={routeMode === 'road' ? t.directRoute : t.roadRoute}
+                className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 active:scale-95 transition-all text-[10px] font-medium flex items-center gap-1 border border-slate-700/60"
+              >
+                <Compass className="w-3.5 h-3.5 text-amber-400" />
+              </button>
+            </div>
           </div>
         </div>
       )}

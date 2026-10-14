@@ -19,10 +19,17 @@ import {
   CheckCircle2,
   RefreshCw,
   ShieldCheck,
+  Bus,
 } from 'lucide-react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Coordinates, calculateHaversineDistance } from './utils/geo';
-import { alertSystem, SoundType, SOUND_OPTIONS } from './utils/audioAlert';
+import {
+  alertSystem,
+  SoundType,
+  VibrationPatternType,
+  SOUND_OPTIONS,
+  VIBRATION_OPTIONS,
+} from './utils/audioAlert';
 import { GoogleMapComponent } from './components/GoogleMapComponent';
 import { MapComponent as LeafletMapComponent } from './components/MapComponent';
 import { SearchBar } from './components/SearchBar';
@@ -30,6 +37,7 @@ import { TrackingHUD } from './components/TrackingHUD';
 import { AlertModal } from './components/AlertModal';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
 import { FavoritesModal, FavoriteLocation } from './components/FavoritesModal';
+import { BusTraceHistoryModal } from './components/BusTraceHistoryModal';
 import { LocationPermissionModal } from './components/LocationPermissionModal';
 import { BackgroundPermissionModal } from './components/BackgroundPermissionModal';
 import { GpsDetailsModal } from './components/GpsDetailsModal';
@@ -39,6 +47,7 @@ import { AdMobBanner } from './components/AdMobBanner';
 import { AdMobInterstitialModal } from './components/AdMobInterstitialModal';
 import { AdMobSettingsModal } from './components/AdMobSettingsModal';
 import { adMobService, ADMOB_DEFAULTS } from './services/AdMobService';
+import { busTraceService, BusTraceRecord, BUS_LINE_COLORS } from './services/BusTraceService';
 import { useLocationManager } from './hooks/useLocationManager';
 import { Language, TextSize, TRANSLATIONS } from './utils/i18n';
 
@@ -136,9 +145,12 @@ export default function App() {
   const [isTracking, setIsTracking] = useState<boolean>(false);
   const [isAlarmActive, setIsAlarmActive] = useState<boolean>(false);
 
-  // Personnalisation des sons / sonneries d'alarme
+  // Personnalisation des sons et vibrations d'alarme (mode poche)
   const [selectedSound, setSelectedSound] = useState<SoundType>('station_chime');
-  const [volume, setVolume] = useState<number>(0.8);
+  const [selectedVibration, setSelectedVibration] = useState<VibrationPatternType>(() => {
+    return alertSystem.getVibrationPattern();
+  });
+  const [volume, setVolume] = useState<number>(0.85);
   const [isSoundModalOpen, setIsSoundModalOpen] = useState<boolean>(false);
 
   // Favoris / Arrêts enregistrés
@@ -151,6 +163,21 @@ export default function App() {
     }
   });
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState<boolean>(false);
+  const [isBusTraceModalOpen, setIsBusTraceModalOpen] = useState<boolean>(false);
+  const [activeBusTrace, setActiveBusTrace] = useState<BusTraceRecord | null>(null);
+  const [busTraceCount, setBusTraceCount] = useState<number>(() => busTraceService.getTraces().length);
+  const trackingStartTimeRef = useRef<number | null>(null);
+  const trackingBreadcrumbsRef = useRef<Coordinates[]>([]);
+  const trackingMaxSpeedRef = useRef<number>(0);
+
+  // Écoute des mises à jour des tracés de bus
+  useEffect(() => {
+    const unsub = busTraceService.subscribe((list) => {
+      setBusTraceCount(list.length);
+    });
+    return unsub;
+  }, []);
+
   const [isGpsDetailsOpen, setIsGpsDetailsOpen] = useState<boolean>(false);
   const [isBackgroundModalOpen, setIsBackgroundModalOpen] = useState<boolean>(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
@@ -256,12 +283,35 @@ export default function App() {
     }
   }, [isTracking, distanceToDestination, alertRadius, isAlarmActive, destination]);
 
+  // Enregistrement continu des points GPS du tracé de bus pendant le suivi actif
+  useEffect(() => {
+    if (!isTracking || !effectiveLocation) return;
+    const prev = trackingBreadcrumbsRef.current;
+    const last = prev[prev.length - 1];
+    if (
+      !last ||
+      Math.abs(last.lat - effectiveLocation.lat) > 0.00006 ||
+      Math.abs(last.lng - effectiveLocation.lng) > 0.00006
+    ) {
+      trackingBreadcrumbsRef.current = [...prev, effectiveLocation];
+    }
+    if (effectiveSpeed && effectiveSpeed > trackingMaxSpeedRef.current) {
+      trackingMaxSpeedRef.current = effectiveSpeed;
+    }
+  }, [isTracking, effectiveLocation, effectiveSpeed]);
+
   // Démarrer le suivi réel du trajet
   const handleStartTracking = useCallback(async () => {
     if (!destination) return;
 
+    alertSystem.unlockAudio();
     alertSystem.ensureAudioContext();
     await alertSystem.requestWakeLock();
+
+    // Initialiser le chronomètre et les points pour l'historique du tracé de bus
+    trackingStartTimeRef.current = Date.now();
+    trackingBreadcrumbsRef.current = effectiveLocation ? [effectiveLocation] : [];
+    trackingMaxSpeedRef.current = effectiveSpeed || 0;
 
     setIsTracking(true);
 
@@ -283,11 +333,14 @@ export default function App() {
     startWatch(() => {
       // Le state est mis à jour automatiquement par useLocationManager
     });
-  }, [destination, isSimulating, startWatch]);
+  }, [destination, isSimulating, startWatch, effectiveLocation, effectiveSpeed]);
 
   // Arrêter le suivi et l'alarme
   const handleStopTracking = useCallback(() => {
     const wasAlarming = isAlarmActive;
+    const currentBreadcrumbs = [...trackingBreadcrumbsRef.current];
+    const startTime = trackingStartTimeRef.current;
+
     setIsTracking(false);
     setIsAlarmActive(false);
     alertSystem.stopAlarm();
@@ -302,13 +355,82 @@ export default function App() {
 
     setSimulatedSpeed(null);
 
+    // Enregistrement automatique dans l'historique des tracés de bus si un parcours a été réalisé
+    if (currentBreadcrumbs.length >= 2 && destination) {
+      const durationSec = startTime
+        ? Math.max(10, Math.round((Date.now() - startTime) / 1000))
+        : 60;
+      const metrics = busTraceService.calculateTraceMetrics(currentBreadcrumbs, durationSec);
+      const color =
+        BUS_LINE_COLORS[Math.floor(Math.random() * BUS_LINE_COLORS.length)].hex;
+
+      const lineMatch = destinationAddress?.match(/\b(?:bus|ligne)\s*([0-9a-zA-Z]+)\b/i);
+      const detectedLine = lineMatch ? lineMatch[1].toUpperCase() : 'BUS';
+
+      busTraceService.addTrace({
+        busLine: detectedLine,
+        name:
+          destinationAddress ||
+          (lang === 'ar'
+            ? 'مسار حافلة مكتمل'
+            : lang === 'en'
+            ? 'Completed Bus Trip'
+            : 'Trajet en bus'),
+        color,
+        date: Date.now(),
+        durationSeconds: durationSec,
+        distanceMeters: metrics.distanceMeters,
+        avgSpeedKmh: metrics.avgSpeedKmh,
+        maxSpeedKmh:
+          Math.round((trackingMaxSpeedRef.current || 0) * 3.6 * 10) / 10 || undefined,
+        startPoint: {
+          name:
+            lang === 'ar'
+              ? 'محطة الانطلاق'
+              : lang === 'en'
+              ? 'Departure Stop'
+              : 'Arrêt de départ',
+          lat: currentBreadcrumbs[0].lat,
+          lng: currentBreadcrumbs[0].lng,
+        },
+        destinationPoint: {
+          name:
+            destinationAddress ||
+            (lang === 'ar'
+              ? 'الوصول'
+              : lang === 'en'
+              ? 'Arrival Stop'
+              : 'Arrêt d’arrivée'),
+          lat: destination.lat,
+          lng: destination.lng,
+        },
+        coordinates: currentBreadcrumbs,
+        notes: isSimulating
+          ? 'Trajet de bus simulé'
+          : 'Tracé GPS réel enregistré automatiquement',
+      });
+
+      setGpsNotification({
+        message: t.traceSavedSuccess,
+        type: 'success',
+      });
+    }
+
     // Déclencher l'interstitiel AdMob après un trajet ou après l'alarme d'arrivée
     if (wasAlarming) {
       setTimeout(() => {
         adMobService.showInterstitial(true);
       }, 700);
     }
-  }, [stopWatch, isAlarmActive]);
+  }, [
+    stopWatch,
+    isAlarmActive,
+    destination,
+    destinationAddress,
+    lang,
+    isSimulating,
+    t,
+  ]);
 
   // Définir la destination depuis la carte
   const handleSelectDestinationFromMap = (coords: Coordinates) => {
@@ -389,6 +511,7 @@ export default function App() {
 
   // Avancer manuellement d'un pas vers l'arrivée (Test)
   const handleSimulateStep = () => {
+    alertSystem.unlockAudio();
     if (!simulatedLocation || !destination) return;
     const newLat = simulatedLocation.lat + (destination.lat - simulatedLocation.lat) * 0.35;
     const newLng = simulatedLocation.lng + (destination.lng - simulatedLocation.lng) * 0.35;
@@ -687,6 +810,8 @@ export default function App() {
               distanceToDestination={distanceToDestination}
               t={t}
               onOpenGpsDetails={() => setIsGpsDetailsOpen(true)}
+              activeBusTrace={activeBusTrace}
+              onClearBusTrace={() => setActiveBusTrace(null)}
             />
           ) : (
             <LeafletMapComponent
@@ -700,6 +825,8 @@ export default function App() {
               distanceToDestination={distanceToDestination}
               t={t}
               onOpenGpsDetails={() => setIsGpsDetailsOpen(true)}
+              activeBusTrace={activeBusTrace}
+              onClearBusTrace={() => setActiveBusTrace(null)}
             />
           )}
         </main>
@@ -721,6 +848,7 @@ export default function App() {
           onOpenSoundSettings={() => setIsSoundModalOpen(true)}
           selectedSoundName={currentSoundName}
           onOpenFavorites={() => setIsFavoritesModalOpen(true)}
+          onOpenBusTraceHistory={() => setIsBusTraceModalOpen(true)}
           onOpenBackgroundModal={() => setIsBackgroundModalOpen(true)}
           t={t}
         />
@@ -735,7 +863,7 @@ export default function App() {
           t={t}
         />
 
-        {/* Modal des réglages de sonneries */}
+        {/* Modal des réglages de sonneries et vibrations */}
         <SoundSettingsModal
           isOpen={isSoundModalOpen}
           onClose={() => setIsSoundModalOpen(false)}
@@ -743,6 +871,8 @@ export default function App() {
           onSelectSound={setSelectedSound}
           volume={volume}
           onChangeVolume={setVolume}
+          selectedVibration={selectedVibration}
+          onSelectVibration={setSelectedVibration}
           t={t}
           lang={lang}
         />
@@ -758,6 +888,21 @@ export default function App() {
           currentDestination={destination}
           currentDestinationName={destinationAddress}
           t={t}
+        />
+
+        {/* Modal Historique des tracés de lignes de bus */}
+        <BusTraceHistoryModal
+          isOpen={isBusTraceModalOpen}
+          onClose={() => setIsBusTraceModalOpen(false)}
+          onSelectTraceForPreview={(trace) => setActiveBusTrace(trace)}
+          onSelectDestination={handleSelectLocation}
+          currentLocation={effectiveLocation}
+          currentDestination={destination}
+          currentDestinationName={destinationAddress}
+          activePreviewTraceId={activeBusTrace?.id || null}
+          onClearPreview={() => setActiveBusTrace(null)}
+          t={t}
+          lang={lang}
         />
 
         {/* Modal / Interface obligatoire de demande et déblocage de géolocalisation native */}
@@ -843,6 +988,8 @@ export default function App() {
           }
           onOpenSoundModal={() => setIsSoundModalOpen(true)}
           onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
+          onOpenBusTraceHistory={() => setIsBusTraceModalOpen(true)}
+          busTraceCount={busTraceCount}
           onOpenGpsDetails={() => setIsGpsDetailsOpen(true)}
           onOpenBackgroundModal={() => setIsBackgroundModalOpen(true)}
           hasBackgroundPermission={hasBackgroundPermission}

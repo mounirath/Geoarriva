@@ -118,6 +118,49 @@ export interface Translations {
   navigation: string;
   aboutApp: string;
   gpsDiagnostic: string;
+  routeLineTrace: string;
+  showRouteLine: string;
+  hideRouteLine: string;
+  routeActiveNotice: string;
+  roadRoute: string;
+  directRoute: string;
+  busTraceHistory: string;
+  busLines: string;
+  busLineNumber: string;
+  busLinePlaceholder: string;
+  recordBusTrip: string;
+  saveTrace: string;
+  traceSavedSuccess: string;
+  viewBusTraceOnMap: string;
+  clearBusTraceFromMap: string;
+  activeBusTrace: string;
+  manualAddBusTrace: string;
+  exportGpx: string;
+  exportGeoJson: string;
+  noBusTraces: string;
+  noBusTracesDesc: string;
+  traceDuration: string;
+  traceDistance: string;
+  traceAvgSpeed: string;
+  startPoint: string;
+  arrivalTerminus: string;
+  setAsDestination: string;
+  deleteTraceConfirm: string;
+  resetSampleTraces: string;
+  close: string;
+  delete: string;
+  vibrationMode: string;
+  vibrationPatternsTitle: string;
+  vibrationPatternsSubtitle: string;
+  pocketAlertNotice: string;
+  testVibration: string;
+  vibrationTesting: string;
+  vibrationNotSupported: string;
+  soundTestBtn: string;
+  soundTab: string;
+  vibrationTab: string;
+  alarmActiveNotice: string;
+  clickToUnlockAudio: string;
 }
 
 export const TRANSLATIONS: Record<Language, Translations> = {
@@ -233,6 +276,49 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     navigation: 'Navigation & Trajets',
     aboutApp: 'À propos de l’application',
     gpsDiagnostic: 'Diagnostic & Signal GPS',
+    routeLineTrace: 'Tracé du trajet',
+    showRouteLine: 'Afficher le tracé',
+    hideRouteLine: 'Masquer le tracé',
+    routeActiveNotice: 'Tracé du trajet actif vers la destination',
+    roadRoute: 'Itinéraire routier',
+    directRoute: 'Ligne directe vol d’oiseau',
+    busTraceHistory: 'Historique des tracés de bus',
+    busLines: 'Lignes de bus',
+    busLineNumber: 'N° de Ligne',
+    busLinePlaceholder: 'Ex: 38, 91, 72, N01...',
+    recordBusTrip: 'Enregistrer ce tracé de bus',
+    saveTrace: 'Enregistrer le tracé',
+    traceSavedSuccess: 'Tracé de la ligne de bus enregistré avec succès !',
+    viewBusTraceOnMap: 'Afficher sur la carte',
+    clearBusTraceFromMap: 'Masquer le tracé affiché',
+    activeBusTrace: 'Tracé de bus affiché',
+    manualAddBusTrace: 'Ajouter une ligne de bus',
+    exportGpx: 'Exporter GPX',
+    exportGeoJson: 'Exporter GeoJSON',
+    noBusTraces: 'Aucun tracé de ligne de bus enregistré',
+    noBusTracesDesc: 'Vos trajets et lignes de bus suivis s’enregistreront automatiquement ici.',
+    traceDuration: 'Durée',
+    traceDistance: 'Distance',
+    traceAvgSpeed: 'Vitesse moy.',
+    startPoint: 'Arrêt de départ',
+    arrivalTerminus: 'Terminus / Arrivée',
+    setAsDestination: 'Définir comme arrivée',
+    deleteTraceConfirm: 'Supprimer définitivement ce tracé d’historique ?',
+    resetSampleTraces: 'Restaurer exemples',
+    close: 'Fermer',
+    delete: 'Supprimer',
+    vibrationMode: 'Mode de vibration',
+    vibrationPatternsTitle: 'Motifs de vibration (Alerte poche)',
+    vibrationPatternsSubtitle: 'Optimisé pour ressentir le réveil quand le téléphone est dans une poche ou un sac',
+    pocketAlertNotice: 'Motif calibré pour téléphone rangé dans une poche',
+    testVibration: 'Tester la vibration',
+    vibrationTesting: 'Vibration en cours...',
+    vibrationNotSupported: 'Vibration haptique non supportée sur ce navigateur',
+    soundTestBtn: "Tester l'alarme sonore",
+    soundTab: 'Sonnerie',
+    vibrationTab: 'Vibration (Poche)',
+    alarmActiveNotice: "L'alarme sonore et la vibration sont activées",
+    clickToUnlockAudio: 'Touchez pour activer le son si bloqué par le navigateur',
   },
   en: {
     appName: 'arreva',
@@ -346,6 +432,49 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     navigation: 'Navigation & Trips',
     aboutApp: 'About the application',
     gpsDiagnostic: 'GPS Status & Signal Diagnostic',
+    routeLineTrace: 'Route Line Trace',
+    showRouteLine: 'Show Route Line',
+    hideRouteLine: 'Hide Route Line',
+    routeActiveNotice: 'Active route trajectory towards destination',
+    roadRoute: 'Road itinerary',
+    directRoute: 'Direct crow-flies line',
+    busTraceHistory: 'Bus Route Trace History',
+    busLines: 'Bus Lines',
+    busLineNumber: 'Line Number',
+    busLinePlaceholder: 'e.g. 38, 91, 72, N01...',
+    recordBusTrip: 'Save Bus Trip Trace',
+    saveTrace: 'Save Trace',
+    traceSavedSuccess: 'Bus line route trace saved successfully!',
+    viewBusTraceOnMap: 'Show on Map',
+    clearBusTraceFromMap: 'Hide Displayed Route',
+    activeBusTrace: 'Displayed Bus Route',
+    manualAddBusTrace: 'Add Bus Line',
+    exportGpx: 'Export GPX',
+    exportGeoJson: 'Export GeoJSON',
+    noBusTraces: 'No bus route traces saved',
+    noBusTracesDesc: 'Your tracked transit and bus routes will automatically be recorded here.',
+    traceDuration: 'Duration',
+    traceDistance: 'Distance',
+    traceAvgSpeed: 'Avg Speed',
+    startPoint: 'Starting Stop',
+    arrivalTerminus: 'Terminus / Arrival',
+    setAsDestination: 'Set as Arrival',
+    deleteTraceConfirm: 'Permanently delete this route trace history?',
+    resetSampleTraces: 'Restore Samples',
+    close: 'Close',
+    delete: 'Delete',
+    vibrationMode: 'Vibration Mode',
+    vibrationPatternsTitle: 'Vibration Patterns (Pocket Alert)',
+    vibrationPatternsSubtitle: 'Optimized to feel the wake-up alert through your pocket, jacket, or bag',
+    pocketAlertNotice: 'Pattern calibrated for phones in a pocket',
+    testVibration: 'Test vibration',
+    vibrationTesting: 'Vibrating now...',
+    vibrationNotSupported: 'Haptic vibration is not supported on this browser',
+    soundTestBtn: 'Test sound alarm',
+    soundTab: 'Ringtone',
+    vibrationTab: 'Vibration (Pocket)',
+    alarmActiveNotice: 'Audio alarm and pocket vibration are actively firing',
+    clickToUnlockAudio: 'Tap to unblock sound if restricted by browser',
   },
   ar: {
     appName: 'أريفا - arreva',
@@ -459,5 +588,48 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     navigation: 'التنقل والمسارات',
     aboutApp: 'حول التطبيق',
     gpsDiagnostic: 'تشخيص وحالة إشارة GPS',
+    routeLineTrace: 'تخطيط المسار',
+    showRouteLine: 'إظهار خط المسار',
+    hideRouteLine: 'إخفاء خط المسار',
+    routeActiveNotice: 'تتبع خط المسار نشط نحو الوجهة',
+    roadRoute: 'مسار الطريق الفعلي',
+    directRoute: 'خط مستقيم مباشر',
+    busTraceHistory: 'سجل مسارات خطوط الحافلات',
+    busLines: 'خطوط الحافلات',
+    busLineNumber: 'رقم الخط',
+    busLinePlaceholder: 'مثال: 38، 91، 72...',
+    recordBusTrip: 'تسجيل مسار هذه الحافلة',
+    saveTrace: 'حفظ المسار',
+    traceSavedSuccess: 'تم حفظ مسار خط الحافلة بنجاح!',
+    viewBusTraceOnMap: 'عرض على الخريطة',
+    clearBusTraceFromMap: 'إخفاء المسار المعروض',
+    activeBusTrace: 'مسار الحافلة المعروض',
+    manualAddBusTrace: 'إضافة خط حافلة',
+    exportGpx: 'تصدير GPX',
+    exportGeoJson: 'تصدير GeoJSON',
+    noBusTraces: 'لا يوجد مسارات حافلات مسجلة',
+    noBusTracesDesc: 'سيتم حفظ رحلاتك وتتبعاتك لخطوط الحافلات تلقائيًا هنا.',
+    traceDuration: 'المدة',
+    traceDistance: 'المسافة',
+    traceAvgSpeed: 'متوسط السرعة',
+    startPoint: 'محطة الانطلاق',
+    arrivalTerminus: 'محطة الوصول / النهاية',
+    setAsDestination: 'تعيين كنقطة وصول',
+    deleteTraceConfirm: 'هل تريد حذف هذا المسار نهائياً من السجل؟',
+    resetSampleTraces: 'استعادة النماذج',
+    close: 'إغلاق',
+    delete: 'حذف',
+    vibrationMode: 'نمط الاهتزاز',
+    vibrationPatternsTitle: 'أنماط الاهتزاز (تنبيه الجيب)',
+    vibrationPatternsSubtitle: 'مُصمم ومُعاير للإحساس بالمنبه بوضوح عندما يكون الهاتف في الجيب أو المعطف أو الحقيبة',
+    pocketAlertNotice: 'نمط اهتزاز مخصص للهاتف داخل الجيب',
+    testVibration: 'تجربة الاهتزاز',
+    vibrationTesting: 'جارٍ الاهتزاز...',
+    vibrationNotSupported: 'خاصية الاهتزاز اللمسي غير مدعومة في هذا المتصفح',
+    soundTestBtn: 'تجربة المنبه الصوتي',
+    soundTab: 'النغمة الصوتية',
+    vibrationTab: 'الاهتزاز (الجيب)',
+    alarmActiveNotice: 'المنبه الصوتي والاهتزاز قيد العمل الآن',
+    clickToUnlockAudio: 'انقر لتفعيل الصوت في حال تم حظره من قبل المتصفح',
   },
 };

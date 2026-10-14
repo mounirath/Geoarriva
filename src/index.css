@@ -50,6 +50,29 @@
   animation: alertPulseRing 2.5s infinite ease-in-out;
 }
 
+/* Animation d'écoulement du tracé de ligne de trajet (Leaflet & SVG) */
+@keyframes routeDashFlow {
+  0% {
+    stroke-dashoffset: 48;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.route-trace-animated {
+  stroke-dasharray: 10, 14;
+  animation: routeDashFlow 1.4s linear infinite;
+}
+
+.route-trace-glow {
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8));
+}
+
+.route-trace-warning {
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.85));
+}
+
 /* Emergency flash animation for alert screen */
 @keyframes emergencyFlash {
   0%, 100% {

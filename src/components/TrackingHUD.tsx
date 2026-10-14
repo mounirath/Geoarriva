@@ -13,6 +13,8 @@ import {
   Star,
   ChevronUp,
   ChevronDown,
+  Route,
+  Bus,
 } from 'lucide-react';
 import { formatDistance, formatSpeed, estimateRemainingTime } from '../utils/geo';
 import { RadiusSelector } from './RadiusSelector';
@@ -35,6 +37,7 @@ interface TrackingHUDProps {
   onOpenSoundSettings: () => void;
   selectedSoundName: string;
   onOpenFavorites: () => void;
+  onOpenBusTraceHistory?: () => void;
   onOpenBackgroundModal?: () => void;
   t: Translations;
 }
@@ -55,6 +58,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
   onOpenSoundSettings,
   selectedSoundName,
   onOpenFavorites,
+  onOpenBusTraceHistory,
   onOpenBackgroundModal,
   t,
 }) => {
@@ -72,13 +76,13 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
     setIsMenuOpen((prev) => !prev);
   };
 
-  // Test du son de l'alarme
+  // Test du son de l'alarme et de la vibration configurée
   const handleTestSound = () => {
-    alertSystem.ensureAudioContext();
+    alertSystem.unlockAudio();
     alertSystem.playCurrentSound();
     alertSystem.triggerVibration();
     setSoundTested(true);
-    setTimeout(() => setSoundTested(false), 1200);
+    setTimeout(() => setSoundTested(false), 1300);
   };
 
   return (
@@ -154,6 +158,12 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
                   : t.trackingActive
                 : t.waitingForDeparture}
             </span>
+            {isTracking && (
+              <span className="flex items-center gap-1 text-[10px] font-medium text-sky-300 bg-sky-500/15 px-2 py-0.5 rounded-full border border-sky-500/30">
+                <Route className="w-2.5 h-2.5 text-sky-400 animate-pulse" />
+                <span>{t.routeLineTrace}</span>
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5">
@@ -179,6 +189,18 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
             >
               <Star className="w-3.5 h-3.5 fill-amber-400/30" />
             </button>
+
+            {/* Bouton Historique des tracés de bus */}
+            {onOpenBusTraceHistory && (
+              <button
+                onClick={onOpenBusTraceHistory}
+                title={t.busTraceHistory}
+                type="button"
+                className="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-amber-400 hover:text-amber-300 transition-colors"
+              >
+                <Bus className="w-3.5 h-3.5" />
+              </button>
+            )}
 
             {/* Test rapide du son */}
             <button

@@ -13,6 +13,8 @@ import {
   Compass,
   Radio,
   ExternalLink,
+  Route,
+  Bus,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { Translations, Language, TextSize } from '../utils/i18n';
@@ -32,6 +34,8 @@ interface NavigationDrawerProps {
   onToggleMapEngine: () => void;
   onOpenSoundModal: () => void;
   onOpenFavoritesModal: () => void;
+  onOpenBusTraceHistory?: () => void;
+  busTraceCount?: number;
   onOpenGpsDetails: () => void;
   onOpenBackgroundModal: () => void;
   hasBackgroundPermission?: boolean;
@@ -57,6 +61,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   onToggleMapEngine,
   onOpenSoundModal,
   onOpenFavoritesModal,
+  onOpenBusTraceHistory,
+  busTraceCount,
   onOpenGpsDetails,
   onOpenBackgroundModal,
   hasBackgroundPermission,
@@ -223,6 +229,22 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 </span>
               </button>
 
+              {/* Tracé de ligne du trajet */}
+              <div className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-800/40 border border-slate-700/50 transition-all text-left">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-sky-500/10 text-sky-400 flex items-center justify-center border border-sky-500/20">
+                    <Route className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200">{t.routeLineTrace}</div>
+                    <div className="text-[11px] text-slate-400">Tracé lumineux & direct au lancement du suivi</div>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-950 text-sky-400 border border-sky-800">
+                  Actif
+                </span>
+              </div>
+
               {/* Sonneries & Alarmes */}
               <button
                 type="button"
@@ -253,6 +275,30 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                   <div>
                     <div className="text-xs font-semibold text-slate-200">{t.favorites}</div>
                     <div className="text-[11px] text-slate-400">Gares, métros et arrêts enregistrés</div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Historique des tracés de lignes de bus */}
+              <button
+                type="button"
+                onClick={() => onOpenBusTraceHistory && handleAction(onOpenBusTraceHistory)}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-800/80 active:bg-slate-800 border border-transparent hover:border-slate-700/60 transition-all text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+                    <Bus className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                      <span>{t.busTraceHistory}</span>
+                      {busTraceCount !== undefined && busTraceCount > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-950 text-amber-400 border border-amber-800/60">
+                          {busTraceCount}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-slate-400">Lignes enregistrées & parcours GPS</div>
                   </div>
                 </div>
               </button>

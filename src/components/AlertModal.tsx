@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { BellRing, Volume2, VolumeX, CheckCircle2, Navigation } from 'lucide-react';
+import {
+  BellRing,
+  Volume2,
+  VolumeX,
+  CheckCircle2,
+  Navigation,
+  Smartphone,
+  Radio,
+  Sparkles,
+} from 'lucide-react';
 import { formatDistance } from '../utils/geo';
 import { alertSystem } from '../utils/audioAlert';
 import { Translations } from '../utils/i18n';
@@ -22,12 +31,31 @@ export const AlertModal: React.FC<AlertModalProps> = ({
   t,
 }) => {
   const [isMuted, setIsMuted] = useState(false);
+  const [audioFailed, setAudioFailed] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
+      setIsMuted(alertSystem.getIsMuted());
+      // Déverrouiller et lancer l'alarme
+      alertSystem.unlockAudio();
       alertSystem.startFullAlarm();
+
+      // Vérifier si l'audio a été bloqué par autoplay
+      const timer = setTimeout(() => {
+        try {
+          const ctx = alertSystem.ensureAudioContext();
+          if (ctx && ctx.state === 'suspended') {
+            setAudioFailed(true);
+          }
+        } catch (e) {
+          setAudioFailed(true);
+        }
+      }, 500);
+
+      return () => clearTimeout(timer);
     } else {
       alertSystem.stopAlarm();
+      setAudioFailed(false);
     }
 
     return () => {
@@ -39,16 +67,36 @@ export const AlertModal: React.FC<AlertModalProps> = ({
 
   const distObj = formatDistance(distance);
   const radiusObj = formatDistance(radius);
+  const currentVib = alertSystem.getVibrationOption();
 
-  const toggleSound = () => {
+  // Déverrouillage audio immédiat au moindre clic / touch sur la modale
+  const handleUserInteract = () => {
+    alertSystem.unlockAudio();
+    setAudioFailed(false);
+    if (!alertSystem.isRunning()) {
+      alertSystem.startFullAlarm();
+    } else {
+      alertSystem.playCurrentSound();
+    }
+  };
+
+  const toggleSound = (e: React.MouseEvent) => {
+    e.stopPropagation();
     const muted = alertSystem.toggleMute();
     setIsMuted(muted);
   };
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div
+      onClick={handleUserInteract}
+      onTouchStart={handleUserInteract}
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200 cursor-pointer"
+    >
       {/* Carte d'alerte urgente à contraste maximal */}
-      <div className="relative w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border-2 border-rose-500/80 bg-slate-900 text-center">
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-sm rounded-3xl overflow-hidden shadow-2xl border-2 border-rose-500/80 bg-slate-900 text-center"
+      >
         {/* En-tête clignotant rouge vif */}
         <div className="emergency-flash py-6 px-4 text-white relative">
           <div className="w-16 h-16 rounded-full bg-white/20 border-2 border-white/60 mx-auto flex items-center justify-center shadow-lg mb-3 animate-bounce">
@@ -61,10 +109,37 @@ export const AlertModal: React.FC<AlertModalProps> = ({
           <p className="text-sm font-semibold text-rose-100 mt-1">
             {t.approachingDest}
           </p>
+
+          {/* Animation d'égaliseur / ondes sonores et haptiques */}
+          <div className="flex items-center justify-center gap-1.5 mt-3">
+            {[0.4, 0.8, 1, 0.6, 0.9, 0.5, 0.8].map((scale, i) => (
+              <div
+                key={i}
+                style={{
+                  height: `${scale * 16}px`,
+                  animationDelay: `${i * 120}ms`,
+                }}
+                className="w-1 bg-white rounded-full animate-pulse"
+              />
+            ))}
+          </div>
         </div>
 
         {/* Corps d'informations de trajet */}
         <div className="p-5 space-y-4">
+          
+          {/* Alerte si le navigateur a bloqué l'audio automatique */}
+          {audioFailed && (
+            <button
+              type="button"
+              onClick={handleUserInteract}
+              className="w-full p-2.5 rounded-xl bg-amber-500/20 border border-amber-500/50 text-amber-200 text-xs font-bold flex items-center justify-center gap-2 animate-pulse hover:bg-amber-500/30 transition-all"
+            >
+              <Radio className="w-4 h-4 text-amber-400" />
+              <span>{t.clickToUnlockAudio}</span>
+            </button>
+          )}
+
           <div className="bg-slate-950/60 rounded-2xl p-4 border border-slate-800">
             <div className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
               {t.estimatedRemainingDist}
@@ -87,21 +162,32 @@ export const AlertModal: React.FC<AlertModalProps> = ({
             </div>
           )}
 
+          {/* Badge du motif de vibration actif pour la poche */}
+          <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-800/40 border border-slate-700/50 text-xs">
+            <span className="text-slate-400 flex items-center gap-1.5">
+              <Smartphone className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+              <span>Vibration poche :</span>
+            </span>
+            <span className="font-bold text-amber-300">
+              {currentVib.badge}
+            </span>
+          </div>
+
           {/* Contrôle du son silencieux */}
           <div className="flex items-center justify-center gap-2 pt-1">
             <button
               onClick={toggleSound}
               type="button"
-              className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs flex items-center gap-1.5 border border-slate-700 active:scale-95 transition-all"
+              className="px-3.5 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs flex items-center gap-1.5 border border-slate-700 active:scale-95 transition-all shadow-sm"
             >
               {isMuted ? (
                 <>
-                  <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                  <VolumeX className="w-4 h-4 text-rose-400" />
                   <span>{t.soundMuted}</span>
                 </>
               ) : (
                 <>
-                  <Volume2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                  <Volume2 className="w-4 h-4 text-emerald-400 animate-pulse" />
                   <span>{t.soundActive}</span>
                 </>
               )}
