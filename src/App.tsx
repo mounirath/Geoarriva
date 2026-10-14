@@ -14,7 +14,6 @@ import {
   Star,
   Map as MapIcon,
   Type,
-  Megaphone,
   Locate,
   Loader2,
   CheckCircle2,
@@ -30,15 +29,15 @@ import { TrackingHUD } from './components/TrackingHUD';
 import { AlertModal } from './components/AlertModal';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
 import { FavoritesModal, FavoriteLocation } from './components/FavoritesModal';
-import { AdBanner } from './components/AdBanner';
-import { AdSettingsModal } from './components/AdSettingsModal';
-import { AppOpenAdModal } from './components/AppOpenAdModal';
 import { LocationPermissionModal } from './components/LocationPermissionModal';
 import { GpsDetailsModal } from './components/GpsDetailsModal';
 import { AppLogo } from './components/AppLogo';
 import { NavigationDrawer } from './components/NavigationDrawer';
+import { AdMobBanner } from './components/AdMobBanner';
+import { AdMobInterstitialModal } from './components/AdMobInterstitialModal';
+import { AdMobSettingsModal } from './components/AdMobSettingsModal';
+import { adMobService, ADMOB_DEFAULTS } from './services/AdMobService';
 import { useLocationManager } from './hooks/useLocationManager';
-import { unityAdsService, UNITY_DEFAULTS } from './services/UnityAdsService';
 import { Language, TextSize, TRANSLATIONS } from './utils/i18n';
 
 const GOOGLE_MAPS_API_KEY =
@@ -95,46 +94,35 @@ export default function App() {
   const [mapEngine, setMapEngine] = useState<'google' | 'leaflet'>('google');
   const [quotaExceeded, setQuotaExceeded] = useState<boolean>(false);
 
-  // Configuration Unity Ads / Monétisation
-  const [unityGameId, setUnityGameId] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('unity_ads_config');
-      if (saved) return JSON.parse(saved).gameId || UNITY_DEFAULTS.GAME_ID;
-      return (import.meta.env.VITE_UNITY_GAME_ID as string) || UNITY_DEFAULTS.GAME_ID;
-    } catch {
-      return UNITY_DEFAULTS.GAME_ID;
-    }
-  });
-  const [unityBannerPlacement, setUnityBannerPlacement] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('unity_ads_config');
-      if (saved) return JSON.parse(saved).banner || UNITY_DEFAULTS.BANNER_PLACEMENT;
-      return (import.meta.env.VITE_UNITY_BANNER_PLACEMENT as string) || UNITY_DEFAULTS.BANNER_PLACEMENT;
-    } catch {
-      return UNITY_DEFAULTS.BANNER_PLACEMENT;
-    }
-  });
-  const [unityInterstitialPlacement, setUnityInterstitialPlacement] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('unity_ads_config');
-      if (saved) return JSON.parse(saved).interstitial || UNITY_DEFAULTS.INTERSTITIAL_PLACEMENT;
-      return (import.meta.env.VITE_UNITY_INTERSTITIAL_PLACEMENT as string) || UNITY_DEFAULTS.INTERSTITIAL_PLACEMENT;
-    } catch {
-      return UNITY_DEFAULTS.INTERSTITIAL_PLACEMENT;
-    }
-  });
-  const [isAdSettingsOpen, setIsAdSettingsOpen] = useState<boolean>(false);
+  // Configuration Google AdMob
+  const [adMobAppId, setAdMobAppId] = useState<string>(() => adMobService.getAppId());
+  const [adMobInterstitialId, setAdMobInterstitialId] = useState<string>(() =>
+    adMobService.getInterstitialId()
+  );
+  const [adMobBannerId, setAdMobBannerId] = useState<string>(() =>
+    adMobService.getBannerId()
+  );
+  const [isAdMobSettingsOpen, setIsAdMobSettingsOpen] = useState<boolean>(false);
+  const [isAdMobInterstitialOpen, setIsAdMobInterstitialOpen] = useState<boolean>(false);
 
-  // Annonce Interstitielle Unity Ads : déclenchée lors de la reprise, test ou notification
-  const [isAppOpenAdVisible, setIsAppOpenAdVisible] = useState<boolean>(false);
-
-  // Écoute des déclenchements d'interstitiels Unity Ads
+  // Écoute des déclenchements de l'interstitiel AdMob
   useEffect(() => {
-    const unsub = unityAdsService.onTriggerInterstitial(() => {
-      setIsAppOpenAdVisible(true);
+    const unsub = adMobService.onTriggerInterstitial(() => {
+      setIsAdMobInterstitialOpen(true);
     });
     return unsub;
   }, []);
+
+  const handleSaveAdMobConfig = (
+    appId: string,
+    interstitialId: string,
+    bannerId: string
+  ) => {
+    setAdMobAppId(appId);
+    setAdMobInterstitialId(interstitialId);
+    setAdMobBannerId(bannerId);
+    adMobService.updateConfig(appId, interstitialId, bannerId);
+  };
 
   // États de destination et alerte
   const [destination, setDestination] = useState<Coordinates | null>(null);
@@ -307,13 +295,6 @@ export default function App() {
     }
 
     setSimulatedSpeed(null);
-
-    // Déclencher l'interstitiel Unity Ads de fin de trajet à l'arrivée
-    if (wasAlarming) {
-      setTimeout(() => {
-        unityAdsService.showInterstitial();
-      }, 600);
-    }
   }, [stopWatch, isAlarmActive]);
 
   // Définir la destination depuis la carte
@@ -366,19 +347,6 @@ export default function App() {
           Math.abs(f.lng - destination.lng) < 0.0005
       )
     : false;
-
-  // Sauvegarde config Unity Ads
-  const handleSaveUnityConfig = (
-    gameId: string,
-    banner: string,
-    interstitial: string,
-    testMode: boolean = true
-  ) => {
-    setUnityGameId(gameId);
-    setUnityBannerPlacement(banner);
-    setUnityInterstitialPlacement(interstitial);
-    unityAdsService.updateConfig(gameId, banner, interstitial, testMode);
-  };
 
   // Basculer le mode simulation
   const handleToggleSimulation = () => {
@@ -449,16 +417,6 @@ export default function App() {
         dir={lang === 'ar' ? 'rtl' : 'ltr'}
         className={`relative w-screen h-screen overflow-hidden bg-slate-950 flex flex-col font-sans select-none text-scale-${textSize}`}
       >
-        {/* Annonce Interstitielle Unity Ads */}
-        <AppOpenAdModal
-          isOpen={isAppOpenAdVisible}
-          onClose={() => setIsAppOpenAdVisible(false)}
-          gameId={unityGameId}
-          placementId={unityInterstitialPlacement}
-          t={t}
-          lang={lang}
-        />
-
         {/* Bannière de quota Google Maps Platform si dépassé */}
         {quotaExceeded && (
           <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
@@ -477,11 +435,10 @@ export default function App() {
           </div>
         )}
 
-        {/* Top Bar épurée (1 row, 3 zones) */}
+        {/* Top Bar épurée et aérée */}
         <header className="absolute top-0 left-0 right-0 z-[500] h-14 px-3 sm:px-4 bg-slate-950/85 backdrop-blur-md border-b border-slate-800/80 flex items-center justify-between pointer-events-auto">
-          {/* Zone 1: Hamburger Menu, Marque & Indicateur d'état GPS réel */}
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* Bouton Hamburger accessible avec 3 lignes empilées */}
+          {/* Zone Gauche : Bouton menu tiroir, Logo & Titre */}
+          <div className="flex items-center gap-2.5">
             <button
               ref={hamburgerButtonRef}
               type="button"
@@ -512,10 +469,13 @@ export default function App() {
             </button>
 
             <AppLogo className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl shadow-lg shadow-amber-500/25 shrink-0 hover:scale-105 transition-transform" />
-            <span className="text-base font-bold tracking-tight text-white hidden xs:inline sm:inline">
+            <span className="text-base font-bold tracking-tight text-white">
               {t.appName}
             </span>
+          </div>
 
+          {/* Zone Droite : Statut GPS, Langues & Actions rapides */}
+          <div className="flex items-center gap-2">
             {/* Pastille d'état GPS natif cliquable pour voir les détails */}
             <button
               onClick={() => {
@@ -526,7 +486,7 @@ export default function App() {
                 }
               }}
               type="button"
-              className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
                 isRealGps || isSimulating
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
                   : isGpsLoading
@@ -536,20 +496,17 @@ export default function App() {
               title="Afficher les détails de ma position GPS"
             >
               {isGpsLoading ? (
-                <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                <Loader2 className="w-3 h-3 animate-spin" />
               ) : isRealGps || isSimulating ? (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               ) : (
-                <AlertTriangle className="w-2.5 h-2.5" />
+                <AlertTriangle className="w-3 h-3" />
               )}
-              <span>
+              <span className="hidden xs:inline sm:inline">
                 {isRealGps || isSimulating ? 'GPS Actif' : isGpsLoading ? '...' : '! GPS'}
               </span>
             </button>
-          </div>
 
-          {/* Zone 2: Contrôles rapides */}
-          <div className="flex items-center gap-1 sm:gap-1.5">
             {/* Sélecteur de Langue (FR / EN / AR) */}
             <div className="flex items-center bg-slate-800/80 rounded-xl p-0.5 border border-slate-700/60">
               {(['fr', 'en', 'ar'] as Language[]).map((l) => (
@@ -568,74 +525,13 @@ export default function App() {
               ))}
             </div>
 
-            {/* Bouton Agrandissement de texte */}
-            <button
-              onClick={cycleTextSize}
-              type="button"
-              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-slate-200 text-xs font-semibold transition-all active:scale-95"
-              title={`${t.textSize}: ${textSizeLabel}`}
-            >
-              <Type className="w-3.5 h-3.5 text-amber-400" />
-              <span className="font-mono text-[11px] font-bold">{textSizeBadge}</span>
-            </button>
-
-            {/* Bascule moteur Google Maps / OSM */}
-            <button
-              onClick={() =>
-                setMapEngine((prev) => (prev === 'google' ? 'leaflet' : 'google'))
-              }
-              type="button"
-              className={`flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-medium border transition-colors ${
-                mapEngine === 'google'
-                  ? 'bg-blue-600/30 text-blue-300 border-blue-500/50'
-                  : 'bg-slate-800/70 text-slate-300 border-slate-700/60'
-              }`}
-              title={mapEngine === 'google' ? t.googleMaps : t.osm}
-            >
-              <MapIcon className="w-3.5 h-3.5 text-blue-400" />
-              <span className="hidden md:inline">{mapEngine === 'google' ? 'Google' : 'OSM'}</span>
-            </button>
-
-            {/* Bouton Sonneries */}
-            <button
-              onClick={() => setIsSoundModalOpen(true)}
-              type="button"
-              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-slate-300 hover:text-white border border-slate-700/60 transition-colors"
-              title={t.ringtones}
-            >
-              <Music className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden lg:inline">{t.ringtones}</span>
-            </button>
-
-            {/* Bouton Favoris */}
-            <button
-              onClick={() => setIsFavoritesModalOpen(true)}
-              type="button"
-              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-amber-400 hover:text-amber-300 border border-slate-700/60 transition-colors"
-              title={t.favorites}
-            >
-              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400/20" />
-              <span className="hidden lg:inline">{t.favorites}</span>
-            </button>
-
-            {/* Bouton Paramètres AdMob */}
-            <button
-              onClick={() => setIsAdSettingsOpen(true)}
-              type="button"
-              className="flex items-center gap-1 px-2 py-1 rounded-xl bg-slate-800/70 hover:bg-slate-700 text-xs text-amber-400 hover:text-amber-300 border border-slate-700/60 transition-colors"
-              title={t.admobTitle}
-            >
-              <Megaphone className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Zone 3: Action rapide / réinitialisation */}
-          <div className="flex items-center gap-1.5">
+            {/* Action de réinitialisation si destination définie */}
             {destination && !isTracking && (
               <button
                 onClick={handleClearDestination}
                 type="button"
-                className="text-xs font-medium text-slate-400 hover:text-slate-200 px-2 py-1 rounded-lg hover:bg-slate-800 transition-colors"
+                className="text-xs font-semibold text-slate-300 hover:text-white px-2.5 py-1 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 transition-colors"
+                title="Effacer la destination"
               >
                 {t.clear}
               </button>
@@ -649,8 +545,9 @@ export default function App() {
           </div>
         </header>
 
-        {/* Barre de recherche d'adresse / arrêts & Ajout rapide en favoris */}
-        <div className="absolute top-14 left-0 right-0 z-[500] pointer-events-auto">
+        {/* Module flottant supérieur ordonné : Recherche, Autorisation & Publicité */}
+        <div className="absolute top-16 left-0 right-0 z-[450] pointer-events-auto px-3 sm:px-4 max-w-md mx-auto space-y-2">
+          {/* Barre de recherche d'adresse / arrêts & Ajout rapide en favoris */}
           <SearchBar
             onSelectLocation={handleSelectLocation}
             destinationAddress={destinationAddress}
@@ -662,19 +559,8 @@ export default function App() {
             lang={lang}
           />
 
-          {/* Bannière Mobile Unity Ads */}
-          <AdBanner
-            gameId={unityGameId}
-            placementId={unityBannerPlacement}
-            t={t}
-            onOpenSettings={() => setIsAdSettingsOpen(true)}
-            onShowInterstitial={() => unityAdsService.showInterstitial(true)}
-          />
-        </div>
-
-        {/* Bandeau d'autorisation GPS direct si la position n'est pas encore accordée */}
-        {!isRealGps && !isSimulating && (
-          <div className="absolute top-36 sm:top-36 left-3 right-3 sm:left-4 sm:right-4 z-[550] max-w-md mx-auto pointer-events-auto">
+          {/* Bandeau d'autorisation GPS direct si la position n'est pas encore accordée */}
+          {!isRealGps && !isSimulating && (
             <div className="bg-slate-900/95 border border-amber-500/50 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2.5 shadow-2xl animate-in slide-in-from-top-2">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
@@ -706,57 +592,37 @@ export default function App() {
                 <span>{isGpsLoading ? 'Recherche...' : 'Autoriser'}</span>
               </button>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Toast de confirmation de position GPS au démarrage */}
-        {gpsNotification && (
-          <div className="absolute top-28 left-1/2 -translate-x-1/2 z-[550] pointer-events-none animate-in fade-in slide-in-from-top-3 duration-300">
-            <div className={`px-3.5 py-1.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-semibold backdrop-blur-md border ${
-              gpsNotification.type === 'success'
-                ? 'bg-emerald-950/95 text-emerald-200 border-emerald-500/50'
-                : 'bg-slate-900/95 text-amber-300 border-amber-500/40'
-            }`}>
-              {gpsNotification.type === 'success' ? (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              ) : (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-              )}
-              <span>{gpsNotification.message}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Notification discrète d'erreur GPS uniquement si aucune position n'est disponible */}
-        {gpsError && !userLocation && permissionStatus !== 'denied' && (
-          <div className="absolute top-28 left-3 right-3 sm:left-4 sm:right-4 z-[450] max-w-md mx-auto pointer-events-none">
-            <div className="bg-slate-900/95 border border-amber-500/50 backdrop-blur-md rounded-2xl p-3 flex items-center justify-between gap-3 text-xs text-amber-200 shadow-2xl pointer-events-auto animate-in slide-in-from-top-2">
-              <div className="flex items-start gap-2.5 min-w-0">
-                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-semibold text-white leading-tight">
-                    Connexion GPS
-                  </span>
-                  <span className="text-[11px] text-amber-200/90 leading-normal mt-0.5">
-                    {gpsError.message}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => requestLocation()}
-                disabled={isGpsLoading}
-                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold text-xs shrink-0 flex items-center gap-1.5 transition-transform"
+          {/* Toast de confirmation de position GPS au démarrage */}
+          {gpsNotification && (
+            <div className="flex justify-center pointer-events-none animate-in fade-in slide-in-from-top-2 duration-300">
+              <div
+                className={`px-3.5 py-1.5 rounded-full shadow-2xl flex items-center gap-2 text-xs font-semibold backdrop-blur-md border ${
+                  gpsNotification.type === 'success'
+                    ? 'bg-emerald-950/95 text-emerald-200 border-emerald-500/50'
+                    : 'bg-slate-900/95 text-amber-300 border-amber-500/40'
+                }`}
               >
-                {isGpsLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                {gpsNotification.type === 'success' ? (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                 ) : (
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
                 )}
-                <span>{t.locRetryBtn}</span>
-              </button>
+                <span>{gpsNotification.message}</span>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Bannière Google AdMob (3286634079) */}
+          <AdMobBanner
+            bannerId={adMobBannerId}
+            interstitialId={adMobInterstitialId}
+            t={t}
+            onOpenSettings={() => setIsAdMobSettingsOpen(true)}
+            onShowInterstitial={() => adMobService.showInterstitial(true)}
+          />
+        </div>
 
         {/* Carte interactive pleine page (Google Maps ou Leaflet) */}
         <main className="flex-1 w-full h-full relative">
@@ -844,18 +710,6 @@ export default function App() {
           t={t}
         />
 
-        {/* Modal de configuration Unity Ads */}
-        <AdSettingsModal
-          isOpen={isAdSettingsOpen}
-          onClose={() => setIsAdSettingsOpen(false)}
-          gameId={unityGameId}
-          bannerPlacement={unityBannerPlacement}
-          interstitialPlacement={unityInterstitialPlacement}
-          onSaveConfig={handleSaveUnityConfig}
-          onTestInterstitial={() => unityAdsService.showInterstitial(true)}
-          t={t}
-        />
-
         {/* Modal / Interface obligatoire de demande et déblocage de géolocalisation native */}
         <LocationPermissionModal
           permissionStatus={permissionStatus}
@@ -885,6 +739,27 @@ export default function App() {
           lang={lang}
         />
 
+        {/* Modal Interstitiel Google AdMob (6108238532) */}
+        <AdMobInterstitialModal
+          isOpen={isAdMobInterstitialOpen}
+          onClose={() => setIsAdMobInterstitialOpen(false)}
+          adUnitId={adMobInterstitialId}
+          t={t}
+          lang={lang}
+        />
+
+        {/* Modal Réglages Google AdMob */}
+        <AdMobSettingsModal
+          isOpen={isAdMobSettingsOpen}
+          onClose={() => setIsAdMobSettingsOpen(false)}
+          appId={adMobAppId}
+          interstitialId={adMobInterstitialId}
+          bannerId={adMobBannerId}
+          onSaveConfig={handleSaveAdMobConfig}
+          onTestInterstitial={() => adMobService.showInterstitial(true)}
+          t={t}
+        />
+
         {/* Navigation Drawer (tiroir off-canvas coulissant depuis la gauche avec scrim) */}
         <NavigationDrawer
           isOpen={isDrawerOpen}
@@ -904,7 +779,7 @@ export default function App() {
           onOpenSoundModal={() => setIsSoundModalOpen(true)}
           onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
           onOpenGpsDetails={() => setIsGpsDetailsOpen(true)}
-          onOpenAdSettings={() => setIsAdSettingsOpen(true)}
+          onOpenAdMobSettings={() => setIsAdMobSettingsOpen(true)}
           isRealGps={isRealGps}
           isGpsLoading={isGpsLoading}
           isSimulating={isSimulating}

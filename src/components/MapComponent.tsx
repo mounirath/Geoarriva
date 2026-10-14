@@ -334,33 +334,16 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         </div>
       )}
 
-      {/* Bouton visible d'accès direct à ma position GPS */}
-      <div className="absolute left-3.5 top-20 z-[400]">
-        <button
-          onClick={handleRecenterUser}
-          type="button"
-          className="flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-900/90 text-white backdrop-blur-md border border-blue-500/40 shadow-xl active:scale-95 transition-all hover:bg-slate-800"
-        >
-          <div className="relative flex items-center justify-center w-3 h-3">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-          </div>
-          <span className="text-xs font-bold text-slate-100">
-            {userLocation ? 'Ma position GPS' : 'Activer mon GPS'}
-          </span>
-        </button>
-      </div>
-
-      {/* Boutons d'actions rapides de carte (ergonomie mobile pouce droit) */}
-      <div className="absolute right-3.5 top-20 z-[400] flex flex-col gap-2.5">
+      {/* Boutons d'actions rapides de carte (ergonomie pouce mobile, au-dessus du tiroir bas) */}
+      <div className="absolute right-3.5 bottom-20 sm:bottom-20 z-[400] flex flex-col gap-2 pointer-events-auto">
         {/* Recentrer sur ma position */}
         <button
           onClick={handleRecenterUser}
           disabled={!userLocation}
           title={t.locateMe}
-          className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
+          className="w-11 h-11 rounded-2xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-xl flex items-center justify-center active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-800"
         >
-          <Locate className="w-5 h-5 text-blue-400" />
+          <Locate className="w-5 h-5 text-amber-400" />
         </button>
 
         {/* Recentrer sur destination (si définie) */}
@@ -368,7 +351,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           <button
             onClick={handleRecenterDestination}
             title={t.goToDest}
-            className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800"
+            className="w-11 h-11 rounded-2xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-xl flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800"
           >
             <Navigation className="w-5 h-5 text-rose-400" />
           </button>
@@ -379,7 +362,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
           <button
             onClick={handleFitBounds}
             title={t.fitView}
-            className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800"
+            className="w-11 h-11 rounded-2xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-xl flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800"
           >
             <Eye className="w-5 h-5 text-amber-400" />
           </button>
@@ -389,7 +372,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         <button
           onClick={() => setMapStyle((prev) => (prev === 'voyager' ? 'dark' : 'voyager'))}
           title={t.changeMapStyle}
-          className="w-11 h-11 rounded-xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-lg flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800 text-xs"
+          className="w-11 h-11 rounded-2xl bg-slate-900/90 text-white backdrop-blur-md border border-slate-700/80 shadow-xl flex items-center justify-center active:scale-95 transition-all hover:bg-slate-800 text-xs"
         >
           <Layers className="w-5 h-5 text-slate-300" />
         </button>

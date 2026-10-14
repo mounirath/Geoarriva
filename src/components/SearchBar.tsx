@@ -147,7 +147,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <div
       ref={searchContainerRef}
-      className="relative w-full max-w-md mx-auto px-3.5 pt-3 z-[500]"
+      className="relative w-full max-w-md mx-auto z-[500]"
     >
       <div className="relative flex items-center">
         {/* Champ de recherche */}

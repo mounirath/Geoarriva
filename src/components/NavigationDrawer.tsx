@@ -33,7 +33,7 @@ interface NavigationDrawerProps {
   onOpenSoundModal: () => void;
   onOpenFavoritesModal: () => void;
   onOpenGpsDetails: () => void;
-  onOpenAdSettings: () => void;
+  onOpenAdMobSettings?: () => void;
   isRealGps: boolean;
   isGpsLoading: boolean;
   isSimulating: boolean;
@@ -56,7 +56,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   onOpenSoundModal,
   onOpenFavoritesModal,
   onOpenGpsDetails,
-  onOpenAdSettings,
+  onOpenAdMobSettings,
   isRealGps,
   isGpsLoading,
   isSimulating,
@@ -270,22 +270,24 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                 </div>
               </button>
 
-              {/* Paramètres Publicités / AdMob & Unity Ads */}
-              <button
-                type="button"
-                onClick={() => handleAction(onOpenAdSettings)}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-800/80 active:bg-slate-800 border border-transparent hover:border-slate-700/60 transition-all text-left"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20">
-                    <Megaphone className="w-4 h-4" />
+              {/* Publicités Google AdMob */}
+              {onOpenAdMobSettings && (
+                <button
+                  type="button"
+                  onClick={() => handleAction(onOpenAdMobSettings)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-800/80 active:bg-slate-800 border border-transparent hover:border-slate-700/60 transition-all text-left"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+                      <Megaphone className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-slate-200">Google AdMob</div>
+                      <div className="text-[11px] text-slate-400">Bannière & Interstitiel configurés</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-xs font-semibold text-slate-200">{t.admobTitle}</div>
-                    <div className="text-[11px] text-slate-400">Unity Ads & Google AdMob SDK</div>
-                  </div>
-                </div>
-              </button>
+                </button>
+              )}
             </div>
           </div>
 
