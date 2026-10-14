@@ -70,6 +70,9 @@ class LocationManagerService {
     }
   }
 
+  private wakeLockSentinel: any = null;
+  private hasBackgroundPermission: boolean = false;
+
   /**
    * Demande les permissions Android natives si l'application s'exécute sous Cordova
    */
@@ -97,6 +100,110 @@ class LocationManagerService {
       });
     }
     return true;
+  }
+
+  /**
+   * Demande l'autorisation de localisation en arrière-plan (Toujours autoriser)
+   */
+  public async requestBackgroundLocationPermission(): Promise<boolean> {
+    if (typeof window === 'undefined') return true;
+
+    // 1. Sur Cordova / Android natif
+    const cordova = (window as any).cordova;
+    if (cordova?.plugins?.permissions) {
+      const p = cordova.plugins.permissions;
+      if (p.ACCESS_BACKGROUND_LOCATION) {
+        return new Promise((resolve) => {
+          p.requestPermission(
+            p.ACCESS_BACKGROUND_LOCATION,
+            (status: any) => {
+              const granted = Boolean(status && status.hasPermission);
+              this.hasBackgroundPermission = granted;
+              try {
+                localStorage.setItem('arreva_bg_permission', granted ? 'granted' : 'denied');
+              } catch {}
+              resolve(granted);
+            },
+            () => {
+              // Si la popup directe échoue (Android 11+ exige de passer par les paramètres)
+              this.openLocationSettings();
+              resolve(false);
+            }
+          );
+        });
+      }
+    }
+
+    // 2. Sur Navigateur Web / PWA mobile
+    try {
+      // Activer les notifications pour alerter en arrière-plan
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+      // Activer le maintien en éveil de l'écran pendant le trajet
+      await this.enableKeepAwake();
+      this.hasBackgroundPermission = true;
+      try {
+        localStorage.setItem('arreva_bg_permission', 'granted');
+      } catch {}
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Ouvre l'écran des réglages de localisation ou des autorisations de l'application
+   */
+  public openLocationSettings(): void {
+    if (typeof window === 'undefined') return;
+    const cordova = (window as any).cordova;
+    if (cordova?.plugins?.diagnostic) {
+      if (typeof cordova.plugins.diagnostic.switchToLocationSettings === 'function') {
+        cordova.plugins.diagnostic.switchToLocationSettings();
+        return;
+      }
+      if (typeof cordova.plugins.diagnostic.switchToSettings === 'function') {
+        cordova.plugins.diagnostic.switchToSettings();
+        return;
+      }
+    }
+  }
+
+  /**
+   * Maintien en éveil (Screen Wake Lock API) pour éviter l'endormissement du CPU et du GPS
+   */
+  public async enableKeepAwake(): Promise<void> {
+    if (typeof navigator !== 'undefined' && 'wakeLock' in navigator) {
+      try {
+        if (!this.wakeLockSentinel) {
+          this.wakeLockSentinel = await (navigator as any).wakeLock.request('screen');
+          this.wakeLockSentinel.addEventListener('release', () => {
+            this.wakeLockSentinel = null;
+          });
+        }
+      } catch (err) {
+        // Le wake lock peut échouer si la batterie est faible ou onglet inactif
+      }
+    }
+  }
+
+  public releaseKeepAwake(): void {
+    if (this.wakeLockSentinel) {
+      try {
+        this.wakeLockSentinel.release();
+      } catch {}
+      this.wakeLockSentinel = null;
+    }
+  }
+
+  public getHasBackgroundPermission(): boolean {
+    if (this.hasBackgroundPermission) return true;
+    try {
+      return localStorage.getItem('arreva_bg_permission') === 'granted';
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -357,6 +464,9 @@ class LocationManagerService {
       navigator.geolocation.clearWatch(this.watchId);
     }
 
+    // Activer le maintien en éveil pour que le suivi continue en arrière-plan
+    this.enableKeepAwake().catch(() => {});
+
     const options: PositionOptions = {
       enableHighAccuracy: true,
       maximumAge: 1000,
@@ -397,6 +507,7 @@ class LocationManagerService {
       navigator.geolocation.clearWatch(this.watchId);
       this.watchId = null;
     }
+    this.releaseKeepAwake();
   }
 
   // Getters

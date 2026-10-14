@@ -13,6 +13,7 @@ import {
   X,
   RefreshCw,
   Navigation,
+  ShieldCheck,
 } from 'lucide-react';
 import { Coordinates, formatSpeed } from '../utils/geo';
 import { Translations, Language } from '../utils/i18n';
@@ -28,6 +29,7 @@ interface GpsDetailsModalProps {
   isLoading: boolean;
   onRequestLocation: () => void;
   onCenterMap: () => void;
+  onOpenBackgroundModal?: () => void;
   t: Translations;
   lang: Language;
 }
@@ -43,6 +45,7 @@ export const GpsDetailsModal: React.FC<GpsDetailsModalProps> = ({
   isLoading,
   onRequestLocation,
   onCenterMap,
+  onOpenBackgroundModal,
   t,
   lang,
 }) => {
@@ -259,6 +262,21 @@ export const GpsDetailsModal: React.FC<GpsDetailsModalProps> = ({
             >
               <Share2 className="w-3.5 h-3.5 text-blue-400" />
               <span>Partager ma position GPS</span>
+            </button>
+          )}
+
+          {/* Bouton Autorisations & Arrière-plan */}
+          {onOpenBackgroundModal && (
+            <button
+              onClick={() => {
+                onOpenBackgroundModal();
+                onClose();
+              }}
+              type="button"
+              className="w-full py-2 px-3 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 hover:text-teal-200 text-xs font-semibold flex items-center justify-center gap-2 border border-teal-500/30 transition-colors"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+              <span>Autorisation GPS & Arrière-plan</span>
             </button>
           )}
         </div>

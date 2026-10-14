@@ -16,7 +16,10 @@ export interface UseLocationManagerReturn {
   isLoading: boolean;
   error: LocationError | null;
   isRealGps: boolean;
+  hasBackgroundPermission: boolean;
   requestLocation: () => Promise<LocationData>;
+  requestBackgroundPermission: () => Promise<boolean>;
+  openLocationSettings: () => void;
   startWatch: (onUpdate: (data: LocationData) => void) => void;
   stopWatch: () => void;
 }
@@ -85,6 +88,14 @@ export function useLocationManager(): UseLocationManagerReturn {
     locationManager.stopWatch();
   }, []);
 
+  const requestBackgroundPermission = useCallback(async () => {
+    return locationManager.requestBackgroundLocationPermission();
+  }, []);
+
+  const openLocationSettings = useCallback(() => {
+    locationManager.openLocationSettings();
+  }, []);
+
   return {
     location: locationData ? locationData.coords : null,
     accuracy: locationData ? locationData.accuracy : null,
@@ -94,7 +105,10 @@ export function useLocationManager(): UseLocationManagerReturn {
     isLoading,
     error,
     isRealGps: !!locationData && permissionStatus === 'granted',
+    hasBackgroundPermission: locationManager.getHasBackgroundPermission(),
     requestLocation,
+    requestBackgroundPermission,
+    openLocationSettings,
     startWatch,
     stopWatch,
   };

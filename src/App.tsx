@@ -18,6 +18,7 @@ import {
   Loader2,
   CheckCircle2,
   RefreshCw,
+  ShieldCheck,
 } from 'lucide-react';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { Coordinates, calculateHaversineDistance } from './utils/geo';
@@ -30,6 +31,7 @@ import { AlertModal } from './components/AlertModal';
 import { SoundSettingsModal } from './components/SoundSettingsModal';
 import { FavoritesModal, FavoriteLocation } from './components/FavoritesModal';
 import { LocationPermissionModal } from './components/LocationPermissionModal';
+import { BackgroundPermissionModal } from './components/BackgroundPermissionModal';
 import { GpsDetailsModal } from './components/GpsDetailsModal';
 import { AppLogo } from './components/AppLogo';
 import { NavigationDrawer } from './components/NavigationDrawer';
@@ -62,7 +64,10 @@ export default function App() {
     isLoading: isGpsLoading,
     error: gpsError,
     isRealGps,
+    hasBackgroundPermission,
     requestLocation,
+    requestBackgroundPermission,
+    openLocationSettings,
     startWatch,
     stopWatch,
   } = useLocationManager();
@@ -147,6 +152,7 @@ export default function App() {
   });
   const [isFavoritesModalOpen, setIsFavoritesModalOpen] = useState<boolean>(false);
   const [isGpsDetailsOpen, setIsGpsDetailsOpen] = useState<boolean>(false);
+  const [isBackgroundModalOpen, setIsBackgroundModalOpen] = useState<boolean>(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
   const hamburgerButtonRef = useRef<HTMLButtonElement>(null);
   const [gpsNotification, setGpsNotification] = useState<{ message: string; type: 'loading' | 'success' } | null>(null);
@@ -576,20 +582,56 @@ export default function App() {
                   </div>
                 </div>
               </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => setIsBackgroundModalOpen(true)}
+                  type="button"
+                  className="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white text-[11px] font-semibold border border-slate-700 transition-colors"
+                  title="Autorisations & Arrière-plan"
+                >
+                  Arrière-plan
+                </button>
+                <button
+                  onClick={() => {
+                    requestLocation().catch(() => {});
+                  }}
+                  disabled={isGpsLoading}
+                  type="button"
+                  className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 text-xs font-bold shadow-md transition-all active:scale-95 flex items-center gap-1 disabled:opacity-50"
+                >
+                  {isGpsLoading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isGpsLoading ? 'Recherche...' : 'Autoriser'}</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Bandeau d'invitation à l'autorisation arrière-plan si GPS accordé mais arrière-plan non vérifié */}
+          {isRealGps && !hasBackgroundPermission && !isSimulating && (
+            <div className="bg-slate-900/95 border border-teal-500/40 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2.5 shadow-2xl animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-teal-500/20 border border-teal-500/30 flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-4 h-4 text-teal-400" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>Autorisation Arrière-plan</span>
+                  </div>
+                  <div className="text-[11px] text-slate-300 truncate">
+                    Pour sonner écran éteint dans votre poche
+                  </div>
+                </div>
+              </div>
               <button
-                onClick={() => {
-                  requestLocation().catch(() => {});
-                }}
-                disabled={isGpsLoading}
+                onClick={() => setIsBackgroundModalOpen(true)}
                 type="button"
-                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 text-xs font-bold shadow-md transition-all active:scale-95 shrink-0 flex items-center gap-1 disabled:opacity-50"
+                className="px-3 py-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 active:bg-teal-600 text-slate-950 text-xs font-bold shadow-md transition-all active:scale-95 shrink-0 flex items-center gap-1"
               >
-                {isGpsLoading ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                )}
-                <span>{isGpsLoading ? 'Recherche...' : 'Autoriser'}</span>
+                <span>Configurer</span>
               </button>
             </div>
           )}
@@ -672,6 +714,7 @@ export default function App() {
           onOpenSoundSettings={() => setIsSoundModalOpen(true)}
           selectedSoundName={currentSoundName}
           onOpenFavorites={() => setIsFavoritesModalOpen(true)}
+          onOpenBackgroundModal={() => setIsBackgroundModalOpen(true)}
           t={t}
         />
 
@@ -721,6 +764,20 @@ export default function App() {
           lang={lang}
         />
 
+        {/* Modal d'Autorisations GPS et Arrière-plan (Écran éteint & anti-mise en veille) */}
+        <BackgroundPermissionModal
+          isOpen={isBackgroundModalOpen}
+          onClose={() => setIsBackgroundModalOpen(false)}
+          permissionStatus={permissionStatus}
+          hasLocation={userLocation !== null}
+          hasBackgroundPermission={hasBackgroundPermission}
+          onRequestForegroundLocation={() => requestLocation().catch(() => {})}
+          onRequestBackgroundLocation={requestBackgroundPermission}
+          onOpenSettings={openLocationSettings}
+          t={t}
+          lang={lang}
+        />
+
         {/* Modal détaillée d'affichage et partage de la position GPS */}
         <GpsDetailsModal
           isOpen={isGpsDetailsOpen}
@@ -732,6 +789,7 @@ export default function App() {
           isRealGps={isRealGps || isSimulating}
           isLoading={isGpsLoading}
           onRequestLocation={() => requestLocation()}
+          onOpenBackgroundModal={() => setIsBackgroundModalOpen(true)}
           onCenterMap={() => {
             // Déclenché depuis la modal
           }}
@@ -779,6 +837,8 @@ export default function App() {
           onOpenSoundModal={() => setIsSoundModalOpen(true)}
           onOpenFavoritesModal={() => setIsFavoritesModalOpen(true)}
           onOpenGpsDetails={() => setIsGpsDetailsOpen(true)}
+          onOpenBackgroundModal={() => setIsBackgroundModalOpen(true)}
+          hasBackgroundPermission={hasBackgroundPermission}
           onOpenAdMobSettings={() => setIsAdMobSettingsOpen(true)}
           isRealGps={isRealGps}
           isGpsLoading={isGpsLoading}

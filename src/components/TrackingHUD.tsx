@@ -35,6 +35,7 @@ interface TrackingHUDProps {
   onOpenSoundSettings: () => void;
   selectedSoundName: string;
   onOpenFavorites: () => void;
+  onOpenBackgroundModal?: () => void;
   t: Translations;
 }
 
@@ -54,6 +55,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
   onOpenSoundSettings,
   selectedSoundName,
   onOpenFavorites,
+  onOpenBackgroundModal,
   t,
 }) => {
   // Le menu est fermé par défaut
@@ -315,10 +317,22 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
               {isSimulating ? t.disableSimulation : t.simulateTrip}
             </button>
 
-            <span className="flex items-center gap-1 text-slate-400">
-              <Smartphone className="w-3 h-3 text-emerald-400" />
-              <span>{t.screenKeptAwake}</span>
-            </span>
+            {onOpenBackgroundModal ? (
+              <button
+                type="button"
+                onClick={onOpenBackgroundModal}
+                className="flex items-center gap-1 text-slate-300 hover:text-emerald-300 transition-colors cursor-pointer bg-slate-800/60 hover:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-700/50"
+                title="Gérer l'autorisation d'arrière-plan et maintien en éveil"
+              >
+                <Smartphone className="w-3 h-3 text-emerald-400" />
+                <span>{t.screenKeptAwake}</span>
+              </button>
+            ) : (
+              <span className="flex items-center gap-1 text-slate-400">
+                <Smartphone className="w-3 h-3 text-emerald-400" />
+                <span>{t.screenKeptAwake}</span>
+              </span>
+            )}
           </div>
         </div>
       </div>

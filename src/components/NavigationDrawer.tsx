@@ -33,6 +33,8 @@ interface NavigationDrawerProps {
   onOpenSoundModal: () => void;
   onOpenFavoritesModal: () => void;
   onOpenGpsDetails: () => void;
+  onOpenBackgroundModal: () => void;
+  hasBackgroundPermission?: boolean;
   onOpenAdMobSettings?: () => void;
   isRealGps: boolean;
   isGpsLoading: boolean;
@@ -56,6 +58,8 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   onOpenSoundModal,
   onOpenFavoritesModal,
   onOpenGpsDetails,
+  onOpenBackgroundModal,
+  hasBackgroundPermission,
   onOpenAdMobSettings,
   isRealGps,
   isGpsLoading,
@@ -268,6 +272,32 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                     <div className="text-[11px] text-slate-400">Précision en mètres, vitesse et coordonnées</div>
                   </div>
                 </div>
+              </button>
+
+              {/* Autorisations Localisation & Arrière-plan */}
+              <button
+                type="button"
+                onClick={() => handleAction(onOpenBackgroundModal)}
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-800/80 active:bg-slate-800 border border-transparent hover:border-slate-700/60 transition-all text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-400 flex items-center justify-center border border-teal-500/20">
+                    <ShieldCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-200">Autorisations GPS & Arrière-plan</div>
+                    <div className="text-[11px] text-slate-400">Pour sonner écran éteint & en poche</div>
+                  </div>
+                </div>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    hasBackgroundPermission && isRealGps
+                      ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                      : 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                  }`}
+                >
+                  {hasBackgroundPermission && isRealGps ? 'Actif' : 'Vérifier'}
+                </span>
               </button>
 
               {/* Publicités Google AdMob */}
