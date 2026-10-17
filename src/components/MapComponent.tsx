@@ -805,8 +805,8 @@ export const MapComponent: React.FC<MapComponentProps> = ({
         )}
       </div>
 
-      {/* Boutons d'actions rapides de carte (ergonomie pouce mobile, au-dessus du tiroir bas) */}
-      <div className="absolute right-3.5 bottom-20 sm:bottom-20 z-[400] flex flex-col gap-2 pointer-events-auto">
+      {/* Boutons d'actions rapides de carte (ergonomie pouce mobile, au-dessus du bandeau bas) */}
+      <div className="absolute right-3.5 bottom-36 sm:bottom-36 z-[400] flex flex-col gap-2 pointer-events-auto">
         {/* Recentrer sur ma position */}
         <button
           onClick={handleRecenterUser}

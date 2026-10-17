@@ -21,6 +21,7 @@ interface AdMobBannerProps {
   t: Translations;
   onOpenSettings: () => void;
   onShowInterstitial: () => void;
+  className?: string;
 }
 
 // Campagnes publicitaires réalistes de partenaires mobilité / voyages pour l'affichage AdMob
@@ -93,6 +94,7 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
   t,
   onOpenSettings,
   onShowInterstitial,
+  className = '',
 }) => {
   const [currentAdIndex, setCurrentAdIndex] = useState(0);
   const [showInfoTooltip, setShowInfoTooltip] = useState(false);
@@ -133,7 +135,7 @@ export const AdMobBanner: React.FC<AdMobBannerProps> = ({
     <aside
       ref={adRef}
       aria-label="Annonce Google AdMob"
-      className="w-full max-w-md mx-auto select-none pointer-events-auto transition-all duration-300"
+      className={`w-full max-w-lg mx-auto select-none pointer-events-auto transition-all duration-300 ${className}`}
     >
       {/* Conteneur principal bannière style Google AdMob adaptatif */}
       <div className="relative bg-slate-900/95 hover:bg-slate-900 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-xl overflow-hidden transition-all duration-200">

@@ -813,14 +813,6 @@ export default function App() {
             </div>
           )}
 
-          {/* Bannière Google AdMob (3286634079) */}
-          <AdMobBanner
-            bannerId={adMobBannerId}
-            interstitialId={adMobInterstitialId}
-            t={t}
-            onOpenSettings={() => setIsAdMobSettingsOpen(true)}
-            onShowInterstitial={() => adMobService.showInterstitial(true)}
-          />
         </div>
 
         {/* Carte interactive pleine page (Google Maps ou Leaflet) */}
@@ -886,6 +878,19 @@ export default function App() {
           onOpenMenu={() => setIsDrawerOpen(true)}
           t={t}
         />
+
+        {/* Bannière Google AdMob (3286634079) tout en bas de l'écran */}
+        <div className="fixed bottom-0 left-0 right-0 z-[460] pointer-events-auto bg-slate-950/95 backdrop-blur-md border-t border-slate-800/90 px-2.5 py-1.5 flex justify-center shadow-2xl">
+          <div className="w-full max-w-lg">
+            <AdMobBanner
+              bannerId={adMobBannerId}
+              interstitialId={adMobInterstitialId}
+              t={t}
+              onOpenSettings={() => setIsAdMobSettingsOpen(true)}
+              onShowInterstitial={() => adMobService.showInterstitial(true)}
+            />
+          </div>
+        </div>
 
         {/* Bouton onglet latéral flottant pour ouvrir directement le menu hamburger depuis le côté de l'écran */}
         <button

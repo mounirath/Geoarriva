@@ -55,7 +55,7 @@ export const TrackingHUD: React.FC<TrackingHUDProps> = ({
   return (
     <div
       id="floating-trip-bar"
-      className="fixed bottom-3 left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-[450] pointer-events-auto"
+      className="fixed bottom-[70px] sm:bottom-[74px] left-3 right-3 sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-[450] pointer-events-auto"
     >
       <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl shadow-2xl p-2.5 sm:p-3 flex items-center justify-between gap-2.5">
         {/* Info trajet & métriques (Cliquable pour ouvrir le menu latéral complet) */}
