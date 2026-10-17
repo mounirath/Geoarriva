@@ -167,6 +167,10 @@ export interface Translations {
   gpsCentered: string;
   gpsNotDetectedPrompt: string;
   enableTestGpsLocation: string;
+  tripControls: string;
+  sideMenu: string;
+  openSideMenu: string;
+  destinationHeading: string;
 }
 
 export const TRANSLATIONS: Record<Language, Translations> = {
@@ -331,6 +335,10 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     gpsCentered: 'Carte centrée sur votre position GPS',
     gpsNotDetectedPrompt: 'Position GPS non encore détectée',
     enableTestGpsLocation: 'Activer la position GPS de test',
+    tripControls: 'Contrôles du trajet & Alarme',
+    sideMenu: 'Menu latéral',
+    openSideMenu: 'Ouvrir le menu latéral',
+    destinationHeading: 'Destination & Arrivée',
   },
   en: {
     appName: 'arreva',
@@ -493,6 +501,10 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     gpsCentered: 'Map centered on your GPS position',
     gpsNotDetectedPrompt: 'GPS position not yet detected',
     enableTestGpsLocation: 'Enable demo GPS position',
+    tripControls: 'Trip Controls & Alarm',
+    sideMenu: 'Side Menu',
+    openSideMenu: 'Open side menu',
+    destinationHeading: 'Destination & Arrival',
   },
   ar: {
     appName: 'أريفا - arreva',
@@ -655,5 +667,9 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     gpsCentered: 'تم تمركز الخريطة على موقعك الحالي',
     gpsNotDetectedPrompt: 'لم يتم تحديد موقع GPS بعد',
     enableTestGpsLocation: 'تفعيل موقع تجريبي للاختبار',
+    tripControls: 'التحكم في المسار والتنبيه',
+    sideMenu: 'القائمة الجانبية',
+    openSideMenu: 'فتح القائمة الجانبية',
+    destinationHeading: 'الوجهة ومحطة الوصول',
   },
 };

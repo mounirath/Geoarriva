@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   X,
   Map as MapIcon,
@@ -15,9 +15,19 @@ import {
   ExternalLink,
   Route,
   Bus,
+  Navigation,
+  Gauge,
+  Clock,
+  Volume2,
+  Sparkles,
+  MapPin,
+  Sliders,
 } from 'lucide-react';
 import { AppLogo } from './AppLogo';
 import { Translations, Language, TextSize } from '../utils/i18n';
+import { RadiusSelector } from './RadiusSelector';
+import { alertSystem } from '../utils/audioAlert';
+import { formatDistance, formatSpeed, estimateRemainingTime } from '../utils/geo';
 
 interface NavigationDrawerProps {
   isOpen: boolean;
@@ -44,6 +54,18 @@ interface NavigationDrawerProps {
   isGpsLoading: boolean;
   isSimulating: boolean;
   onToggleSimulation: () => void;
+  // Contrôles complets du trajet déplacés dans le menu hamburger
+  isTracking?: boolean;
+  distance?: number | null;
+  radius?: number;
+  currentSpeed?: number | null;
+  destinationSet?: boolean;
+  destinationAddress?: string | null;
+  onStartTracking?: () => void;
+  onStopTracking?: () => void;
+  onChangeRadius?: (radius: number) => void;
+  onSimulateStep?: () => void;
+  selectedSoundName?: string;
 }
 
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
@@ -71,10 +93,22 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   isGpsLoading,
   isSimulating,
   onToggleSimulation,
+  isTracking = false,
+  distance = null,
+  radius = 500,
+  currentSpeed = null,
+  destinationSet = false,
+  destinationAddress = null,
+  onStartTracking,
+  onStopTracking,
+  onChangeRadius,
+  onSimulateStep,
+  selectedSoundName,
 }) => {
   const drawerRef = useRef<HTMLElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const wasOpenRef = useRef<boolean>(isOpen);
+  const [soundTested, setSoundTested] = useState<boolean>(false);
 
   // 1. Verrouillage du scroll du body quand le tiroir est ouvert
   useEffect(() => {
@@ -97,7 +131,6 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
   // 2. Restauration du focus sur le bouton déclencheur lors de la fermeture
   useEffect(() => {
     if (wasOpenRef.current && !isOpen) {
-      // Le tiroir vient de se fermer : on renvoie le focus sur le bouton hamburger
       triggerRef.current?.focus();
     }
     wasOpenRef.current = isOpen;
@@ -120,11 +153,22 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
 
   const handleAction = (callback: () => void) => {
     onClose();
-    // Laisser le temps à l'animation de fermeture
     setTimeout(() => {
       callback();
     }, 150);
   };
+
+  const handleTestSound = () => {
+    alertSystem.unlockAudio();
+    alertSystem.playCurrentSound();
+    alertSystem.triggerVibration();
+    setSoundTested(true);
+    setTimeout(() => setSoundTested(false), 1400);
+  };
+
+  const formattedDist = formatDistance(distance);
+  const speedText = formatSpeed(currentSpeed);
+  const etaText = distance !== null ? estimateRemainingTime(distance, currentSpeed) : '--';
 
   return (
     <>
@@ -147,12 +191,12 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
         aria-modal="true"
         aria-label={t.menu}
         aria-hidden={!isOpen}
-        className={`fixed top-0 bottom-0 left-0 z-[1000] w-80 max-w-[85vw] bg-slate-900/95 backdrop-blur-2xl border-r border-slate-800 text-slate-100 shadow-2xl flex flex-col transition-transform duration-300 ease-out transform ${
+        className={`fixed top-0 bottom-0 left-0 z-[1000] w-84 max-w-[88vw] bg-slate-900/95 backdrop-blur-2xl border-r border-slate-800 text-slate-100 shadow-2xl flex flex-col transition-transform duration-300 ease-out transform ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* En-tête du Drawer */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-800/80 bg-slate-950/50">
+        <div className="flex items-center justify-between p-4 border-b border-slate-800/80 bg-slate-950/60 shrink-0">
           <div className="flex items-center gap-3">
             <AppLogo className="w-10 h-10 rounded-2xl shadow-lg shadow-amber-500/25 shrink-0" />
             <div>
@@ -178,7 +222,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
         </div>
 
         {/* État GPS en direct */}
-        <div className="px-4 py-2.5 bg-slate-950/30 border-b border-slate-800/60 flex items-center justify-between">
+        <div className="px-4 py-2.5 bg-slate-950/35 border-b border-slate-800/60 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <Radio
               className={`w-3.5 h-3.5 ${
@@ -186,7 +230,11 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
               }`}
             />
             <span className="text-xs font-semibold text-slate-300">
-              {isRealGps || isSimulating ? 'Signal GPS capté' : isGpsLoading ? 'Recherche signal...' : 'Signal GPS inactif'}
+              {isRealGps || isSimulating
+                ? 'Signal GPS capté'
+                : isGpsLoading
+                ? 'Recherche signal...'
+                : 'Signal GPS inactif'}
             </span>
           </div>
           <button
@@ -197,8 +245,174 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
           </button>
         </div>
 
-        {/* Liste des rubriques de navigation (déroulante) */}
+        {/* Liste déroulante des contrôles & rubriques */}
         <div className="flex-1 overflow-y-auto p-3 space-y-4">
+          {/* SECTION 1 : CONTRÔLES DU TRAJET & ALARME (DÉPLACÉ DU BAS VERS LE MENU LATÉRAL) */}
+          <div className="bg-slate-950/65 rounded-2xl p-3 border border-slate-800/90 shadow-inner space-y-3">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-800/80">
+              <div className="flex items-center gap-1.5">
+                <Navigation className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                  {t.tripControls}
+                </span>
+              </div>
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  isTracking
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 animate-pulse'
+                    : destinationSet
+                    ? 'bg-amber-500/15 text-amber-300 border-amber-500/40'
+                    : 'bg-slate-800 text-slate-400 border-slate-700'
+                }`}
+              >
+                {isTracking
+                  ? isSimulating
+                    ? t.trackingSimActive
+                    : t.trackingActive
+                  : destinationSet
+                  ? 'Prêt à démarrer'
+                  : t.waitingForDeparture}
+              </span>
+            </div>
+
+            {/* Destination & Métriques du trajet */}
+            {destinationSet && distance !== null ? (
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 bg-slate-900/85 p-2.5 rounded-xl border border-slate-800">
+                  <MapPin className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[10px] text-slate-400 font-medium">Destination d'arrivée</div>
+                    <div className="text-xs font-semibold text-slate-100 truncate">
+                      {destinationAddress || 'Arrêt défini sur la carte'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Grille des 3 métriques : Distance, Vitesse, ETA */}
+                <div className="grid grid-cols-3 gap-1.5 text-center">
+                  <div className="bg-slate-900/90 rounded-xl p-2 border border-slate-800">
+                    <div className="text-[10px] text-slate-400 font-medium flex items-center justify-center gap-1">
+                      <Navigation className="w-2.5 h-2.5 text-rose-400" />
+                      <span>{t.distanceLabel}</span>
+                    </div>
+                    <div className="font-mono font-bold text-sm text-white mt-0.5">
+                      {formattedDist.value}{' '}
+                      <span className="text-[10px] text-slate-400 font-normal">
+                        {formattedDist.unit}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/90 rounded-xl p-2 border border-slate-800">
+                    <div className="text-[10px] text-slate-400 font-medium flex items-center justify-center gap-1">
+                      <Gauge className="w-2.5 h-2.5 text-blue-400" />
+                      <span>{t.speedLabel}</span>
+                    </div>
+                    <div className="font-mono font-bold text-sm text-slate-200 mt-0.5">
+                      {speedText}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/90 rounded-xl p-2 border border-slate-800">
+                    <div className="text-[10px] text-slate-400 font-medium flex items-center justify-center gap-1">
+                      <Clock className="w-2.5 h-2.5 text-amber-400" />
+                      <span>{t.etaLabel}</span>
+                    </div>
+                    <div className="font-mono font-bold text-sm text-amber-300 mt-0.5">
+                      {etaText}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-2.5 text-center bg-slate-900/60 rounded-xl border border-dashed border-slate-800 text-xs text-slate-400">
+                {t.tapMapOrSearchHint}
+              </div>
+            )}
+
+            {/* Boutons d'action : Démarrer / Arrêter la surveillance */}
+            <div className="space-y-1.5 pt-0.5">
+              {!isTracking ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onStartTracking) {
+                      onStartTracking();
+                      onClose();
+                    }
+                  }}
+                  disabled={!destinationSet}
+                  className="w-full py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-slate-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-amber-500/10 cursor-pointer"
+                >
+                  <Play className="w-4 h-4 fill-slate-950" />
+                  <span>{t.startTracking}</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (onStopTracking) {
+                        onStopTracking();
+                      }
+                    }}
+                    className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-[0.98] text-white font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-md shadow-rose-950/30 cursor-pointer"
+                  >
+                    <Square className="w-3.5 h-3.5 fill-white" />
+                    <span>{t.stopTracking}</span>
+                  </button>
+
+                  {isSimulating && onSimulateStep && (
+                    <button
+                      type="button"
+                      onClick={onSimulateStep}
+                      className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-semibold border border-slate-700 flex items-center gap-1 transition-all"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>{t.stepForward}</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Sélecteur de rayon d'alerte */}
+            <div className="pt-1">
+              <RadiusSelector
+                radius={radius}
+                onChangeRadius={onChangeRadius ?? (() => {})}
+                disabled={Boolean(isTracking)}
+                t={t}
+              />
+            </div>
+
+            {/* Test rapide son & vibration & bouton raccourci sonneries */}
+            <div className="pt-1 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={handleTestSound}
+                className={`flex-1 py-2 px-3 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+                  soundTested
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/60 scale-[1.02]'
+                    : 'bg-slate-900/85 hover:bg-slate-800 text-slate-300 border-slate-800 hover:text-white'
+                }`}
+              >
+                <Volume2 className="w-3.5 h-3.5 text-amber-400" />
+                <span>{soundTested ? 'Alarme activée !' : t.testAlarm}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleAction(onOpenSoundModal)}
+                className="py-2 px-3 rounded-xl bg-slate-900/85 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-medium flex items-center gap-1 transition-all"
+                title={t.ringtones}
+              >
+                <Music className="w-3.5 h-3.5 text-amber-400" />
+                <span className="truncate max-w-[85px]">{selectedSoundName || t.ringtones}</span>
+              </button>
+            </div>
+          </div>
+
           {/* Section Navigation & Trajets */}
           <div>
             <div className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
@@ -458,7 +672,7 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
         </div>
 
         {/* Pied de page du Drawer */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-950/50 space-y-2">
+        <div className="p-4 border-t border-slate-800/80 bg-slate-950/60 space-y-2 shrink-0">
           <div className="flex items-center justify-between text-[11px] text-slate-400">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />

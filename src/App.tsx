@@ -864,7 +864,7 @@ export default function App() {
           )}
         </main>
 
-        {/* Panneau de contrôle bas (HUD Ergonomique pouce mobile) */}
+        {/* Panneau flottant bas épuré avec bouton d'ouverture du menu latéral */}
         <TrackingHUD
           isTracking={isTracking}
           distance={distanceToDestination}
@@ -883,8 +883,27 @@ export default function App() {
           onOpenFavorites={() => setIsFavoritesModalOpen(true)}
           onOpenBusTraceHistory={() => setIsBusTraceModalOpen(true)}
           onOpenBackgroundModal={() => setIsBackgroundModalOpen(true)}
+          onOpenMenu={() => setIsDrawerOpen(true)}
           t={t}
         />
+
+        {/* Bouton onglet latéral flottant pour ouvrir directement le menu hamburger depuis le côté de l'écran */}
+        <button
+          type="button"
+          onClick={() => setIsDrawerOpen(true)}
+          aria-label={t.openSideMenu}
+          title={t.openSideMenu}
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-[420] bg-slate-900/90 hover:bg-slate-800/95 active:scale-95 border-r border-y border-slate-700/80 rounded-r-2xl py-3 px-1.5 shadow-2xl flex flex-col items-center gap-1.5 text-amber-400 hover:text-amber-300 transition-all cursor-pointer group"
+        >
+          <div className="w-4 h-3 flex flex-col justify-between" aria-hidden="true">
+            <span className="h-0.5 w-full bg-current rounded-full" />
+            <span className="h-0.5 w-full bg-current rounded-full" />
+            <span className="h-0.5 w-full bg-current rounded-full" />
+          </div>
+          <span className="text-[9px] font-bold tracking-widest uppercase [writing-mode:vertical-lr] text-slate-300 group-hover:text-amber-300">
+            Menu
+          </span>
+        </button>
 
         {/* Modal / Bannière d'alerte urgente au franchissement du rayon */}
         <AlertModal
@@ -1004,7 +1023,7 @@ export default function App() {
           t={t}
         />
 
-        {/* Navigation Drawer (tiroir off-canvas coulissant depuis la gauche avec scrim) */}
+        {/* Navigation Drawer (menu hamburger latéral avec contrôles complets du trajet) */}
         <NavigationDrawer
           isOpen={isDrawerOpen}
           onClose={() => setIsDrawerOpen(false)}
@@ -1031,7 +1050,18 @@ export default function App() {
           isRealGps={isRealGps}
           isGpsLoading={isGpsLoading}
           isSimulating={isSimulating}
-          onToggleSimulation={() => setIsSimulating((prev) => !prev)}
+          onToggleSimulation={handleToggleSimulation}
+          isTracking={isTracking}
+          distance={distanceToDestination}
+          radius={alertRadius}
+          currentSpeed={effectiveSpeed}
+          destinationSet={destination !== null}
+          destinationAddress={destinationAddress}
+          onStartTracking={handleStartTracking}
+          onStopTracking={handleStopTracking}
+          onChangeRadius={setAlertRadius}
+          onSimulateStep={handleSimulateStep}
+          selectedSoundName={currentSoundName}
         />
       </div>
     </APIProvider>
