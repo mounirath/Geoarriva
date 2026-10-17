@@ -1,6 +1,12 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, MapPin, Loader2, Compass, Star } from 'lucide-react';
-import { Coordinates, searchLocation, GeocodingResult } from '../utils/geo';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Search, X, MapPin, Loader2, Compass, Star, Navigation } from 'lucide-react';
+import {
+  Coordinates,
+  searchLocation,
+  GeocodingResult,
+  calculateHaversineDistance,
+  formatDistance,
+} from '../utils/geo';
 import { Translations, Language } from '../utils/i18n';
 
 interface SearchBarProps {
@@ -10,6 +16,7 @@ interface SearchBarProps {
   onClearDestination: () => void;
   onAddFavorite?: (name: string, coords: Coordinates) => void;
   isDestinationFavorite?: boolean;
+  userLocation?: Coordinates | null;
   t: Translations;
   lang: Language;
 }
@@ -59,7 +66,7 @@ const GET_TRANSIT_SUGGESTIONS = (lang: Language) => [
   {
     label:
       lang === 'ar'
-        ? 'محطة بارت ديو، ليون'
+        ? 'محطة بارت ديو، ليon'
         : lang === 'en'
         ? 'Gare Part-Dieu, Lyon'
         : 'Gare Part-Dieu, Lyon',
@@ -75,6 +82,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   onClearDestination,
   onAddFavorite,
   isDestinationFavorite = false,
+  userLocation,
   t,
   lang,
 }) => {
@@ -85,7 +93,23 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const [justAddedFav, setJustAddedFav] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
-  const transitSuggestions = GET_TRANSIT_SUGGESTIONS(lang);
+  // Suggestions triées par proximité par rapport à l'utilisateur si disponible
+  const sortedSuggestions = useMemo(() => {
+    const raw = GET_TRANSIT_SUGGESTIONS(lang);
+    if (!userLocation || isNaN(userLocation.lat) || isNaN(userLocation.lng)) {
+      return raw.map((item) => ({ ...item, distanceMeters: undefined }));
+    }
+    const withDistance = raw.map((item) => ({
+      ...item,
+      distanceMeters: calculateHaversineDistance(
+        userLocation.lat,
+        userLocation.lng,
+        item.lat,
+        item.lng
+      ),
+    }));
+    return withDistance.sort((a, b) => a.distanceMeters - b.distanceMeters);
+  }, [lang, userLocation]);
 
   useEffect(() => {
     if (destinationAddress) {
@@ -102,13 +126,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
     const timer = setTimeout(async () => {
       setIsLoading(true);
-      const res = await searchLocation(query);
+      // Passe la position GPS de l'utilisateur pour classer en priorité les adresses les plus proches
+      const res = await searchLocation(query, userLocation);
       setResults(res);
       setIsLoading(false);
     }, 400);
 
     return () => clearTimeout(timer);
-  }, [query, destinationAddress]);
+  }, [query, destinationAddress, userLocation]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -178,11 +203,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({
               onClick={handleQuickAddFavorite}
               type="button"
               className={`p-1.5 mr-1 rounded-xl transition-all ${
-                isDestinationFavorite || justAddedFav
-                  ? 'text-amber-400 bg-amber-500/20'
-                  : 'text-slate-400 hover:text-amber-400 hover:bg-slate-800'
+                justAddedFav
+                  ? 'bg-emerald-500/20 text-emerald-400'
+                  : isDestinationFavorite
+                  ? 'text-amber-400 hover:text-amber-300'
+                  : 'text-slate-400 hover:text-amber-400'
               }`}
-              title={t.addFavorite}
+              title={
+                isDestinationFavorite
+                  ? t.favAlreadyExists
+                  : t.addFavorite
+              }
             >
               <Star
                 className={`w-4 h-4 ${
@@ -208,27 +239,61 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
       {/* Menu déroulant de suggestions et résultats */}
       {isOpen && (
-        <div className="absolute left-3.5 right-3.5 mt-2 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-800/80">
-          {/* Résultats de recherche OSM */}
+        <div className="absolute left-1 right-1 mt-2 bg-slate-900/95 backdrop-blur-md border border-slate-700/90 rounded-2xl shadow-2xl max-h-72 overflow-y-auto divide-y divide-slate-800/80">
+          {/* Résultats de recherche classés par proximité */}
           {results.length > 0 ? (
             <div className="py-1">
-              <div className="px-3.5 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                {t.searchPlaceholder}
-              </div>
-              {results.map((res, index) => (
-                <button
-                  key={index}
-                  onClick={() =>
-                    handleSelect({ lat: res.lat, lng: res.lng }, res.displayName)
-                  }
-                  className="w-full text-start px-3.5 py-2.5 flex items-start gap-3 hover:bg-slate-800/70 transition-colors group"
-                >
-                  <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                  <span className="text-xs text-slate-200 line-clamp-2 group-hover:text-white">
-                    {res.displayName}
+              <div className="px-3.5 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <span>{t.searchPlaceholder}</span>
+                {userLocation && (
+                  <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 normal-case tracking-normal">
+                    <Navigation className="w-3 h-3 text-emerald-400" />
+                    {t.closestFirst}
                   </span>
-                </button>
-              ))}
+                )}
+              </div>
+              {results.map((res, index) => {
+                const distInfo =
+                  res.distanceMeters !== undefined
+                    ? formatDistance(res.distanceMeters)
+                    : null;
+                const isClosest = index === 0 && res.distanceMeters !== undefined;
+
+                return (
+                  <button
+                    key={index}
+                    onClick={() =>
+                      handleSelect({ lat: res.lat, lng: res.lng }, res.displayName)
+                    }
+                    className="w-full text-start px-3.5 py-2.5 flex items-start gap-3 hover:bg-slate-800/80 transition-colors group"
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      <MapPin
+                        className={`w-4 h-4 ${
+                          isClosest ? 'text-emerald-400' : 'text-rose-500'
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {isClosest && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[9px] border border-emerald-500/30">
+                            {t.nearestBadge}
+                          </span>
+                        )}
+                        {distInfo && (
+                          <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-semibold text-[10px] border border-blue-500/30">
+                            ~{distInfo.full}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-slate-200 line-clamp-2 group-hover:text-white mt-0.5">
+                        {res.displayName}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ) : query.trim().length >= 3 && !isLoading ? (
             <div className="px-4 py-4 text-center text-xs text-slate-400">
@@ -236,25 +301,45 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             </div>
           ) : null}
 
-          {/* Raccourcis fréquents */}
+          {/* Raccourcis fréquents classés par proximité */}
           {results.length === 0 && (
             <div className="py-1">
-              <div className="px-3.5 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Compass className="w-3.5 h-3.5 text-amber-400" />
-                <span>{t.frequentStops}</span>
+              <div className="px-3.5 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Compass className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{t.frequentStops}</span>
+                </div>
+                {userLocation && (
+                  <span className="text-[10px] text-slate-400 font-normal normal-case">
+                    {t.closestFirst}
+                  </span>
+                )}
               </div>
-              {transitSuggestions.map((item, idx) => (
-                <button
-                  key={idx}
-                  onClick={() =>
-                    handleSelect({ lat: item.lat, lng: item.lng }, item.label)
-                  }
-                  className="w-full text-start px-3.5 py-2 flex items-center gap-2.5 hover:bg-slate-800/70 transition-colors"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-                  <span className="text-xs text-slate-300 truncate">{item.label}</span>
-                </button>
-              ))}
+              {sortedSuggestions.map((item, idx) => {
+                const distInfo =
+                  item.distanceMeters !== undefined
+                    ? formatDistance(item.distanceMeters)
+                    : null;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() =>
+                      handleSelect({ lat: item.lat, lng: item.lng }, item.label)
+                    }
+                    className="w-full text-start px-3.5 py-2 flex items-center justify-between gap-2.5 hover:bg-slate-800/70 transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                      <span className="text-xs text-slate-300 truncate">{item.label}</span>
+                    </div>
+                    {distInfo && (
+                      <span className="text-[10px] font-semibold text-sky-400/90 shrink-0 bg-sky-950/60 px-1.5 py-0.5 rounded border border-sky-800/40">
+                        {distInfo.full}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

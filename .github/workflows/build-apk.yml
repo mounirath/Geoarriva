@@ -4,6 +4,15 @@ on:
   push:
     branches: [ "main", "master" ]
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Type de compilation Android'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
 
 jobs:
   build:
@@ -20,43 +29,64 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Set up Android SDK Environment
+        run: |
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+          echo "PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools" >> $GITHUB_ENV
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Install Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
 
-      - name: Install dependencies with Bun
-        run: bun install
+      - name: Install Web Dependencies
+        run: bun install || npm install
 
-      - name: Build Web Project (Vite)
+      - name: Build Web Application (Vite)
         env:
           VITE_CARTO_API_KEY: "cb1_48if_2_0f3fe5e8cce7bab4ee01bfc8"
           VITE_UNITY_GAME_ID: "800387003"
           VITE_UNITY_BANNER_PLACEMENT: "BP_Banner_Android"
           VITE_UNITY_INTERSTITIAL_PLACEMENT: "BP_Interstitial_Android"
-        run: bun run build
+        run: bun run build || npm run build
 
       - name: Install Cordova CLI
         run: npm install -g cordova
 
       - name: Generate Android APK with Cordova
         run: |
+          export ANDROID_HOME=$ANDROID_SDK_ROOT
+          export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools
+
           # 1. Création du projet Cordova
           cordova create temp-app com.arreva.app Arreva
           cd temp-app
           
+          # 2. Copie des fichiers compilés web dans www
           rm -rf www/*
           cp -r ../dist/* www/
           
-          # 2. Configuration de l'icône de l'application
+          # 3. Configuration de l'icône de l'application
           mkdir -p res
-          cp ../public/icons/icon-512.png res/icon.png
-          sed -i '/<\/widget>/i \    <icon src="res/icon.png" />' config.xml
+          if [ -f "../public/icons/icon-512.png" ]; then
+            cp ../public/icons/icon-512.png res/icon.png
+          elif [ -f "../public/icon-512.png" ]; then
+            cp ../public/icon-512.png res/icon.png
+          fi
+          if [ -f "res/icon.png" ]; then
+            sed -i '/<\/widget>/i \    <icon src="res/icon.png" />' config.xml
+          fi
           
-          # 3. Installation des plugins Cordova
+          # 4. Installation des plugins Cordova natifs (GPS, Vibration poche, Permissions)
           cordova plugin add cordova-plugin-androidx-adapter
           cordova plugin add cordova-plugin-android-permissions
           cordova plugin add cordova-plugin-geolocation
+          cordova plugin add cordova-plugin-vibration
           
           # 5. Ajout de la plateforme Android
           cordova platform add android
@@ -71,23 +101,37 @@ jobs:
             sed -i '/<\/config-file>/d' "$CONFIG_XML"
           fi
 
-          # 7. Garantie des permissions GPS et configuration AdMob dans AndroidManifest.xml
+          # 7. Garantie des permissions GPS, Vibration et Arrière-plan dans AndroidManifest.xml
           MANIFEST="platforms/android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST" ]; then
             if ! grep -q "ACCESS_FINE_LOCATION" "$MANIFEST"; then
-              sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />\n    <uses-feature android:name="android.hardware.location.gps" />' "$MANIFEST"
+              sed -i '/<application/i \    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />\n    <uses-permission android:name="android.permission.VIBRATE" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />\n    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />\n    <uses-feature android:name="android.hardware.location.gps" />' "$MANIFEST"
             fi
             if ! grep -q "com.google.android.gms.ads.APPLICATION_ID" "$MANIFEST"; then
               sed -i '/<\/application>/i \        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-1050422776945344~6855047295" />' "$MANIFEST"
             fi
           fi
           
-          # 8. Compilation de l'APK
-          cordova build android --debug
+          # 8. Compilation de l'APK (Debug ou Release)
+          BUILD_TYPE="${{ github.event.inputs.build_type || 'debug' }}"
+          if [ "$BUILD_TYPE" = "release" ]; then
+            cordova build android --release -- --packageType=apk || cordova build android --debug
+          else
+            cordova build android --debug
+          fi
+
+          # 9. Copie de l'APK final vers la racine
+          mkdir -p ../build-output
+          if [ -f "platforms/android/app/build/outputs/apk/debug/app-debug.apk" ]; then
+            cp platforms/android/app/build/outputs/apk/debug/app-debug.apk ../build-output/arreva-debug.apk
+          fi
+          if [ -f "platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+            cp platforms/android/app/build/outputs/apk/release/app-release-unsigned.apk ../build-output/arreva-release-unsigned.apk
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: arreva-debug-apk
-          path: temp-app/platforms/android/app/build/outputs/apk/debug/app-debug.apk
+          name: arreva-android-apk
+          path: build-output/*.apk
           retention-days: 14

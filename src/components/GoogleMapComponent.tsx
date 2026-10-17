@@ -301,14 +301,18 @@ const AutoFrameOnTracking: React.FC<{
 // Composant d'auto-centrage sur la position utilisateur dès la première acquisition
 const AutoCenterOnUser: React.FC<{ userLocation: Coordinates | null }> = ({ userLocation }) => {
   const map = useMap();
-  const hasAutoCenteredRef = useRef<boolean>(false);
+  const lastLocationRef = useRef<Coordinates | null>(null);
 
   useEffect(() => {
     if (!map || !userLocation) return;
-    if (!hasAutoCenteredRef.current) {
+    if (
+      !lastLocationRef.current ||
+      Math.abs(lastLocationRef.current.lat - userLocation.lat) > 0.005 ||
+      Math.abs(lastLocationRef.current.lng - userLocation.lng) > 0.005
+    ) {
       map.panTo(userLocation);
       map.setZoom(16);
-      hasAutoCenteredRef.current = true;
+      lastLocationRef.current = userLocation;
     }
   }, [map, userLocation]);
 
@@ -385,6 +389,36 @@ const MapCameraControls: React.FC<{
 
   return (
     <>
+      {/* Badge indicateur & d'action GPS en haut de la carte */}
+      <div className="absolute top-3 left-3.5 z-[400] flex items-center gap-2 pointer-events-auto">
+        <button
+          onClick={handleRecenterUser}
+          type="button"
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md shadow-lg text-xs font-semibold active:scale-95 transition-all ${
+            userLocation
+              ? 'bg-slate-900/90 hover:bg-slate-800 text-white border border-blue-500/50'
+              : 'bg-blue-600/95 hover:bg-blue-500 text-white shadow-blue-500/40 animate-pulse font-bold'
+          }`}
+          title={userLocation ? t.locateMe : t.showGpsOnMap}
+        >
+          {isGpsLoading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+          ) : (
+            <Locate className={`w-3.5 h-3.5 ${userLocation ? 'text-blue-400' : 'text-white'}`} />
+          )}
+          {userLocation ? (
+            <span className="flex items-center gap-1.5">
+              <span className="text-blue-300 font-bold">GPS</span>
+              <span className="font-mono text-slate-300 text-[11px]">
+                {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+              </span>
+            </span>
+          ) : (
+            <span>{t.showGpsOnMap}</span>
+          )}
+        </button>
+      </div>
+
       {/* Boutons d'actions rapides de carte (ergonomie pouce mobile, au-dessus du tiroir bas) */}
       <div className="absolute right-3.5 bottom-20 sm:bottom-20 z-[400] flex flex-col gap-2 pointer-events-auto">
         {/* Recentrer sur ma position */}
@@ -605,7 +639,11 @@ export const GoogleMapComponent: React.FC<GoogleMapComponentProps> = ({
       >
         {/* Marqueur de position actuelle utilisateur (Pulsation lumineuse & balise) */}
         {userLocation && (
-          <AdvancedMarker position={userLocation} title={t.locateMe}>
+          <AdvancedMarker
+            position={userLocation}
+            title={t.locateMe}
+            onClick={() => onOpenGpsDetails?.()}
+          >
             <div className="relative flex flex-col items-center select-none cursor-pointer">
               <div className="bg-blue-600/95 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full shadow-lg border border-white/90 whitespace-nowrap mb-1 tracking-wide backdrop-blur-md flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>

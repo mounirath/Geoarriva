@@ -12,6 +12,7 @@ export interface GeocodingResult {
   lat: number;
   lng: number;
   type?: string;
+  distanceMeters?: number;
 }
 
 /**
@@ -122,30 +123,65 @@ export function estimateRemainingTime(
 
 /**
  * Recherche d'adresse via l'API Nominatim d'OpenStreetMap (gratuite & sans clé)
+ * Priorise et trie automatiquement par distance croissante (les adresses les plus proches en premier).
  */
-export async function searchLocation(query: string): Promise<GeocodingResult[]> {
+export async function searchLocation(
+  query: string,
+  userCoords?: Coordinates | null
+): Promise<GeocodingResult[]> {
   if (!query || query.trim().length < 2) return [];
 
   try {
     const encoded = encodeURIComponent(query.trim());
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=5&addressdetails=1`,
-      {
-        headers: {
-          'Accept-Language': 'fr,en',
-        },
-      }
-    );
+    // Récupérer jusqu'à 12 résultats pour permettre un classement précis par proximité
+    let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=12&addressdetails=1`;
+
+    // Si la position de l'utilisateur est connue, polariser la recherche autour de lui
+    if (userCoords && !isNaN(userCoords.lat) && !isNaN(userCoords.lng)) {
+      const boxSize = 0.9; // ~100 km de boîte englobante pour favoriser la région immédiate
+      const left = (userCoords.lng - boxSize).toFixed(4);
+      const top = (userCoords.lat + boxSize).toFixed(4);
+      const right = (userCoords.lng + boxSize).toFixed(4);
+      const bottom = (userCoords.lat - boxSize).toFixed(4);
+      url += `&viewbox=${left},${top},${right},${bottom}&bounded=0`;
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        'Accept-Language': 'fr,en',
+      },
+    });
 
     if (!response.ok) return [];
 
     const data = await response.json();
-    return data.map((item: any) => ({
-      displayName: item.display_name,
-      lat: parseFloat(item.lat),
-      lng: parseFloat(item.lon),
-      type: item.type,
-    }));
+    const mapped: GeocodingResult[] = data.map((item: any) => {
+      const lat = parseFloat(item.lat);
+      const lng = parseFloat(item.lon);
+      const distanceMeters =
+        userCoords && !isNaN(userCoords.lat) && !isNaN(userCoords.lng)
+          ? calculateHaversineDistance(userCoords.lat, userCoords.lng, lat, lng)
+          : undefined;
+
+      return {
+        displayName: item.display_name,
+        lat,
+        lng,
+        type: item.type,
+        distanceMeters,
+      };
+    });
+
+    // Trier les adresses : les plus proches géographiquement en premier
+    if (userCoords) {
+      mapped.sort((a, b) => {
+        if (a.distanceMeters === undefined) return 1;
+        if (b.distanceMeters === undefined) return -1;
+        return a.distanceMeters - b.distanceMeters;
+      });
+    }
+
+    return mapped;
   } catch (error) {
     console.warn('Erreur de recherche géocodage:', error);
     return [];

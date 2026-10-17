@@ -531,12 +531,9 @@ export default function App() {
       await requestLocation();
     } catch (err: any) {
       console.warn('GPS request failed:', err);
-      // Si la permission est refusée ou non disponible, proposer le mode démo ou ouvrir modal
-      if (err?.code === 1 || err?.code === -1 || err?.code === 2) {
-        setIsBackgroundModalOpen(true);
-      }
+      handleEnableDemoLocation();
     }
-  }, [requestLocation]);
+  }, [requestLocation, handleEnableDemoLocation]);
 
   // Avancer manuellement d'un pas vers l'arrivée (Test)
   const handleSimulateStep = () => {
@@ -720,6 +717,7 @@ export default function App() {
             onClearDestination={handleClearDestination}
             onAddFavorite={handleAddFavorite}
             isDestinationFavorite={isDestinationFavorite}
+            userLocation={effectiveLocation}
             t={t}
             lang={lang}
           />
@@ -922,6 +920,7 @@ export default function App() {
           onDeleteFavorite={handleDeleteFavorite}
           currentDestination={destination}
           currentDestinationName={destinationAddress}
+          currentLocation={effectiveLocation}
           t={t}
         />
 

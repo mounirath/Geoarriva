@@ -161,6 +161,12 @@ export interface Translations {
   vibrationTab: string;
   alarmActiveNotice: string;
   clickToUnlockAudio: string;
+  closestFirst: string;
+  nearestBadge: string;
+  showGpsOnMap: string;
+  gpsCentered: string;
+  gpsNotDetectedPrompt: string;
+  enableTestGpsLocation: string;
 }
 
 export const TRANSLATIONS: Record<Language, Translations> = {
@@ -319,6 +325,12 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     vibrationTab: 'Vibration (Poche)',
     alarmActiveNotice: "L'alarme sonore et la vibration sont activées",
     clickToUnlockAudio: 'Touchez pour activer le son si bloqué par le navigateur',
+    closestFirst: 'Les plus proches en premier',
+    nearestBadge: 'Plus proche',
+    showGpsOnMap: 'Afficher ma position GPS sur la carte',
+    gpsCentered: 'Carte centrée sur votre position GPS',
+    gpsNotDetectedPrompt: 'Position GPS non encore détectée',
+    enableTestGpsLocation: 'Activer la position GPS de test',
   },
   en: {
     appName: 'arreva',
@@ -475,6 +487,12 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     vibrationTab: 'Vibration (Pocket)',
     alarmActiveNotice: 'Audio alarm and pocket vibration are actively firing',
     clickToUnlockAudio: 'Tap to unblock sound if restricted by browser',
+    closestFirst: 'Nearest addresses first',
+    nearestBadge: 'Nearest',
+    showGpsOnMap: 'Show my GPS position on map',
+    gpsCentered: 'Map centered on your GPS position',
+    gpsNotDetectedPrompt: 'GPS position not yet detected',
+    enableTestGpsLocation: 'Enable demo GPS position',
   },
   ar: {
     appName: 'أريفا - arreva',
@@ -631,5 +649,11 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     vibrationTab: 'الاهتزاز (الجيب)',
     alarmActiveNotice: 'المنبه الصوتي والاهتزاز قيد العمل الآن',
     clickToUnlockAudio: 'انقر لتفعيل الصوت في حال تم حظره من قبل المتصفح',
+    closestFirst: 'الأقرب مسافة أولاً',
+    nearestBadge: 'الأقرب إليك',
+    showGpsOnMap: 'إظهار موقع GPS على الخريطة',
+    gpsCentered: 'تم تمركز الخريطة على موقعك الحالي',
+    gpsNotDetectedPrompt: 'لم يتم تحديد موقع GPS بعد',
+    enableTestGpsLocation: 'تفعيل موقع تجريبي للاختبار',
   },
 };

@@ -10,7 +10,7 @@ import {
   Compass,
   Loader2,
 } from 'lucide-react';
-import { Coordinates, searchLocation, GeocodingResult } from '../utils/geo';
+import { Coordinates, searchLocation, GeocodingResult, formatDistance } from '../utils/geo';
 import { Translations } from '../utils/i18n';
 
 export interface FavoriteLocation {
@@ -30,6 +30,7 @@ interface FavoritesModalProps {
   onDeleteFavorite: (id: string) => void;
   currentDestination: Coordinates | null;
   currentDestinationName: string | null;
+  currentLocation?: Coordinates | null;
   t: Translations;
 }
 
@@ -42,6 +43,7 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
   onDeleteFavorite,
   currentDestination,
   currentDestinationName,
+  currentLocation,
   t,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
@@ -73,13 +75,13 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
 
     const timer = setTimeout(async () => {
       setIsSearching(true);
-      const res = await searchLocation(searchQuery);
+      const res = await searchLocation(searchQuery, currentLocation);
       setSearchResults(res);
       setIsSearching(false);
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, currentLocation]);
 
   if (!isOpen) return null;
 
@@ -211,20 +213,33 @@ export const FavoritesModal: React.FC<FavoritesModalProps> = ({
                 {/* Résultats de recherche dans la modal */}
                 {searchResults.length > 0 && !selectedResult && (
                   <div className="max-h-36 overflow-y-auto divide-y divide-slate-800 rounded-xl border border-slate-800 bg-slate-900">
-                    {searchResults.map((res, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => {
-                          setSelectedResult(res);
-                          setCustomName(res.displayName.split(',')[0]);
-                        }}
-                        className="w-full text-start p-2 hover:bg-slate-800 flex items-start gap-2 text-xs text-slate-300"
-                      >
-                        <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-                        <span className="truncate">{res.displayName}</span>
-                      </button>
-                    ))}
+                    {searchResults.map((res, i) => {
+                      const dist =
+                        res.distanceMeters !== undefined
+                          ? formatDistance(res.distanceMeters)
+                          : null;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setSelectedResult(res);
+                            setCustomName(res.displayName.split(',')[0]);
+                          }}
+                          className="w-full text-start p-2 hover:bg-slate-800 flex items-center justify-between gap-2 text-xs text-slate-300"
+                        >
+                          <div className="flex items-start gap-2 min-w-0">
+                            <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                            <span className="truncate">{res.displayName}</span>
+                          </div>
+                          {dist && (
+                            <span className="text-[10px] text-sky-400 bg-sky-950/80 px-1.5 py-0.5 rounded border border-sky-800/50 shrink-0 font-medium">
+                              {dist.full}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
