@@ -174,6 +174,29 @@ export interface Translations {
   gpsAndBatteryPermissions: string;
   batteryOptimizationExemption: string;
   testLockedScreenAlarm: string;
+  onboardingTitle: string;
+  onboardingSkip: string;
+  onboardingNext: string;
+  onboardingPrev: string;
+  onboardingFinish: string;
+  onboardingStepOf: string;
+  onboardingReplay: string;
+  onboardingStep1Title: string;
+  onboardingStep1Subtitle: string;
+  onboardingStep1Desc: string;
+  onboardingStep1Tip: string;
+  onboardingStep2Title: string;
+  onboardingStep2Subtitle: string;
+  onboardingStep2Desc: string;
+  onboardingStep2Tip: string;
+  onboardingStep3Title: string;
+  onboardingStep3Subtitle: string;
+  onboardingStep3Desc: string;
+  onboardingStep3Tip: string;
+  onboardingStep4Title: string;
+  onboardingStep4Subtitle: string;
+  onboardingStep4Desc: string;
+  onboardingStep4Tip: string;
 }
 
 export const TRANSLATIONS: Record<Language, Translations> = {
@@ -345,6 +368,29 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     gpsAndBatteryPermissions: 'Autorisations GPS & Arrière-plan Batterie',
     batteryOptimizationExemption: 'Exemption batterie & anti-veille',
     testLockedScreenAlarm: 'Tester l’alarme écran verrouillé (5s)',
+    onboardingTitle: 'Bienvenue sur arreva',
+    onboardingSkip: 'Passer',
+    onboardingNext: 'Suivant',
+    onboardingPrev: 'Précédent',
+    onboardingFinish: 'C’est parti !',
+    onboardingStepOf: 'Étape {current} sur {total}',
+    onboardingReplay: 'Guide de démarrage & Tutoriel',
+    onboardingStep1Title: 'Définir votre destination',
+    onboardingStep1Subtitle: 'Sur la carte ou via la barre de recherche',
+    onboardingStep1Desc: 'Touchez n’importe quel arrêt sur la carte ou recherchez votre gare, arrêt de bus ou adresse. Les adresses les plus proches de vous sont affichées automatiquement en premier.',
+    onboardingStep1Tip: 'Astuce : Enregistrez vos arrêts quotidiens dans vos Favoris pour les lancer en 1 clic.',
+    onboardingStep2Title: 'Choisir votre rayon d’alerte',
+    onboardingStep2Subtitle: 'De 50 m à 2 km selon vos transports',
+    onboardingStep2Desc: 'Réglez la distance à laquelle l’alarme doit sonner : 200 m pour un bus en ville, 500 m pour le métro, ou 1 km pour un train ou RER.',
+    onboardingStep2Tip: 'Le cercle coloré sur la carte s’ajuste en direct pour visualiser votre zone de réveil.',
+    onboardingStep3Title: 'Démarrer la surveillance GPS',
+    onboardingStep3Subtitle: 'Calcul continu de la distance et de l’ETA',
+    onboardingStep3Desc: 'Appuyez sur « Démarrer » depuis la barre du bas ou le menu latéral. arreva calcule en permanence votre vitesse et le temps restant jusqu’à votre arrivée.',
+    onboardingStep3Tip: 'Testez le bouton « Simuler un trajet » pour voir l’alarme se déclencher sans vous déplacer.',
+    onboardingStep4Title: 'Dormez serein, arreva vous réveille',
+    onboardingStep4Subtitle: 'Alarme sonore puissante & vibration en poche',
+    onboardingStep4Desc: 'Verrouillez votre écran et mettez votre téléphone en poche. Dès l’entrée dans le rayon configuré, l’alarme retentit pour vous réveiller à temps.',
+    onboardingStep4Tip: 'Activez l’arrière-plan et l’anti-veille dans le menu pour une fiabilité maximale.',
   },
   en: {
     appName: 'arreva',
@@ -514,6 +560,29 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     gpsAndBatteryPermissions: 'GPS & Background Battery Permissions',
     batteryOptimizationExemption: 'Battery Exemption & Sleep Blocker',
     testLockedScreenAlarm: 'Test Alarm on Locked Screen (5s)',
+    onboardingTitle: 'Welcome to arreva',
+    onboardingSkip: 'Skip',
+    onboardingNext: 'Next',
+    onboardingPrev: 'Back',
+    onboardingFinish: 'Get Started!',
+    onboardingStepOf: 'Step {current} of {total}',
+    onboardingReplay: 'Quick Start Guide & Tutorial',
+    onboardingStep1Title: 'Set your destination',
+    onboardingStep1Subtitle: 'On the map or via the search bar',
+    onboardingStep1Desc: 'Simply tap any stop on the map or search for your station, bus stop, or address. Nearest locations automatically appear first.',
+    onboardingStep1Tip: 'Tip: Save frequent stops to Favorites to launch tracking in 1 click.',
+    onboardingStep2Title: 'Choose your alert radius',
+    onboardingStep2Subtitle: 'From 50 m to 2 km for any transit mode',
+    onboardingStep2Desc: 'Set how far in advance your alarm should trigger: 200 m for city buses, 500 m for subways, or 1 km for regional trains to pack your bags.',
+    onboardingStep2Tip: 'The colored perimeter circle updates instantly on the map.',
+    onboardingStep3Title: 'Start GPS tracking',
+    onboardingStep3Subtitle: 'Live distance & estimated arrival time (ETA)',
+    onboardingStep3Desc: 'Tap "Start" from the bottom bar or side menu. arreva monitors your real-time speed and remaining distance.',
+    onboardingStep3Tip: 'Try "Simulate trip" to test the alarm flow without traveling.',
+    onboardingStep4Title: 'Sleep peacefully, arreva wakes you',
+    onboardingStep4Subtitle: 'Loud alarm chime & pocket vibration',
+    onboardingStep4Desc: 'Lock your phone and put it in your pocket. As soon as you enter the alert zone, loud ringtones and vibrations wake you up.',
+    onboardingStep4Tip: 'Check background & battery settings in the menu for uninterrupted tracking.',
   },
   ar: {
     appName: 'أريفا - arreva',
@@ -683,5 +752,28 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     gpsAndBatteryPermissions: 'أذونات نظام GPS والبطارية في الخلفية',
     batteryOptimizationExemption: 'استثناء البطارية ومنع الإغلاق بالخلفية',
     testLockedScreenAlarm: 'تجربة المنبه مع قفل الشاشة (5 ثوانٍ)',
+    onboardingTitle: 'مرحبًا بك في أريفا',
+    onboardingSkip: 'تخطي',
+    onboardingNext: 'التالي',
+    onboardingPrev: 'السابق',
+    onboardingFinish: 'ابدأ الآن !',
+    onboardingStepOf: 'الخطوة {current} من {total}',
+    onboardingReplay: 'دليل البدء والشرح التعليمي',
+    onboardingStep1Title: 'تحديد محطة وجهتك',
+    onboardingStep1Subtitle: 'على الخريطة أو عبر شريط البحث',
+    onboardingStep1Desc: 'انقر على أي نقطة على الخريطة أو ابحث عن محطتك أو عنوانك. تظهر العناوين الأقرب إليك تلقائيًا في البداية.',
+    onboardingStep1Tip: 'نصيحة: احفظ محطاتك اليومية في المفضلة لبدء التتبع بلمسة واحدة.',
+    onboardingStep2Title: 'اختيار نطاق التنبيه',
+    onboardingStep2Subtitle: 'من 50 متراً إلى 2 كم حسب وسيلة النقل',
+    onboardingStep2Desc: 'حدد المسافة المسبقة لإيقاظك: 200م للحافلات، 500م للمترو، أو 1 كم للقطارات السريعة.',
+    onboardingStep2Tip: 'تتغير دائرة التنبيه الملونة على الخريطة مباشرة لمعاينة منطقة وصولك.',
+    onboardingStep3Title: 'بدء تتبع GPS',
+    onboardingStep3Subtitle: 'حساب دقيق للمسافة المتبقية ووقت الوصول',
+    onboardingStep3Desc: 'اضغط على "بدء" من الشريط السفلي أو القائمة الجانبية لمتابعة موقعك وسرعتك الحالية.',
+    onboardingStep3Tip: 'يمكنك استخدام خيار "محاكاة رحلة" لتجربة انطلاق المنبه بدون مغادرة مكانك.',
+    onboardingStep4Title: 'نم براحة بال، أريفا ستوقظك',
+    onboardingStep4Subtitle: 'صوت منبه مرتفع واهتزاز متكرر في الجيب',
+    onboardingStep4Desc: 'أقفل شاشتك وضع الهاتف في جيبك. بمجرد دخولك محيط محطتك سينطلق المنبه القوي والاهتزاز.',
+    onboardingStep4Tip: 'تأكد من تفعيل إذن العمل بالخلفية واستثناء البطارية لمنع إيقاف GPS أثناء النوم.',
   },
 };

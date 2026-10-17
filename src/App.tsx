@@ -43,6 +43,7 @@ import { BackgroundPermissionModal } from './components/BackgroundPermissionModa
 import { GpsDetailsModal } from './components/GpsDetailsModal';
 import { AppLogo } from './components/AppLogo';
 import { NavigationDrawer } from './components/NavigationDrawer';
+import { OnboardingOverlay } from './components/OnboardingOverlay';
 import { AdMobBanner } from './components/AdMobBanner';
 import { AdMobInterstitialModal } from './components/AdMobInterstitialModal';
 import { AdMobSettingsModal } from './components/AdMobSettingsModal';
@@ -182,6 +183,13 @@ export default function App() {
   const [isGpsDetailsOpen, setIsGpsDetailsOpen] = useState<boolean>(false);
   const [isBackgroundModalOpen, setIsBackgroundModalOpen] = useState<boolean>(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('arreva_onboarding_completed') !== 'true';
+    } catch {
+      return false;
+    }
+  });
   const hamburgerButtonRef = useRef<HTMLButtonElement>(null);
   const [gpsNotification, setGpsNotification] = useState<{ message: string; type: 'loading' | 'success' } | null>(null);
 
@@ -1070,6 +1078,15 @@ export default function App() {
           onChangeRadius={setAlertRadius}
           onSimulateStep={handleSimulateStep}
           selectedSoundName={currentSoundName}
+          onOpenOnboarding={() => setIsOnboardingOpen(true)}
+        />
+
+        {/* Overlay d'Onboarding / Guide de démarrage interactif au 1er lancement */}
+        <OnboardingOverlay
+          isOpen={isOnboardingOpen}
+          onClose={() => setIsOnboardingOpen(false)}
+          t={t}
+          lang={lang}
         />
       </div>
     </APIProvider>
