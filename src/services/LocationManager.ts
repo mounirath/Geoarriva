@@ -171,6 +171,24 @@ class LocationManagerService {
   }
 
   /**
+   * Ouvre l'écran des réglages d'optimisation de batterie (Doze mode / Android)
+   */
+  public openBatteryOptimizationSettings(): void {
+    if (typeof window === 'undefined') return;
+    const cordova = (window as any).cordova;
+    if (cordova?.plugins?.diagnostic) {
+      if (typeof cordova.plugins.diagnostic.switchToBatteryOptimizationSettings === 'function') {
+        cordova.plugins.diagnostic.switchToBatteryOptimizationSettings();
+        return;
+      }
+      if (typeof cordova.plugins.diagnostic.switchToSettings === 'function') {
+        cordova.plugins.diagnostic.switchToSettings();
+        return;
+      }
+    }
+  }
+
+  /**
    * Maintien en éveil (Screen Wake Lock API) pour éviter l'endormissement du CPU et du GPS
    */
   public async enableKeepAwake(): Promise<void> {
@@ -195,6 +213,29 @@ class LocationManagerService {
       } catch {}
       this.wakeLockSentinel = null;
     }
+  }
+
+  public isKeepAwakeActive(): boolean {
+    return this.wakeLockSentinel !== null;
+  }
+
+  /**
+   * Récupère le statut réel de la batterie via l'API Web Battery Status
+   */
+  public async getBatteryStatus(): Promise<{ level: number | null; charging: boolean | null; supported: boolean }> {
+    if (typeof navigator !== 'undefined' && 'getBattery' in navigator) {
+      try {
+        const battery: any = await (navigator as any).getBattery();
+        return {
+          level: typeof battery.level === 'number' ? Math.round(battery.level * 100) : null,
+          charging: typeof battery.charging === 'boolean' ? battery.charging : null,
+          supported: true,
+        };
+      } catch {
+        return { level: null, charging: null, supported: false };
+      }
+    }
+    return { level: null, charging: null, supported: false };
   }
 
   public getHasBackgroundPermission(): boolean {

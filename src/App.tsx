@@ -77,6 +77,7 @@ export default function App() {
     requestLocation,
     requestBackgroundPermission,
     openLocationSettings,
+    openBatterySettings,
     startWatch,
     stopWatch,
   } = useLocationManager();
@@ -981,9 +982,11 @@ export default function App() {
           permissionStatus={permissionStatus}
           hasLocation={userLocation !== null}
           hasBackgroundPermission={hasBackgroundPermission}
+          accuracy={isSimulating ? 10 : userAccuracy}
           onRequestForegroundLocation={() => requestLocation().catch(() => {})}
           onRequestBackgroundLocation={requestBackgroundPermission}
           onOpenSettings={openLocationSettings}
+          onOpenBatterySettings={openBatterySettings}
           t={t}
           lang={lang}
         />

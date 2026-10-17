@@ -545,8 +545,12 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({
                     <ShieldCheck className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="text-xs font-semibold text-slate-200">Autorisations GPS & Arrière-plan</div>
-                    <div className="text-[11px] text-slate-400">Pour sonner écran éteint & en poche</div>
+                    <div className="text-xs font-semibold text-slate-200">
+                      Autorisations Système GPS & Batterie
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Pour sonner écran éteint & en poche (Anti-veille)
+                    </div>
                   </div>
                 </div>
                 <span

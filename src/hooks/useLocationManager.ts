@@ -20,6 +20,10 @@ export interface UseLocationManagerReturn {
   requestLocation: () => Promise<LocationData>;
   requestBackgroundPermission: () => Promise<boolean>;
   openLocationSettings: () => void;
+  openBatterySettings: () => void;
+  enableKeepAwake: () => Promise<void>;
+  releaseKeepAwake: () => void;
+  isKeepAwakeActive: boolean;
   startWatch: (onUpdate: (data: LocationData) => void) => void;
   stopWatch: () => void;
 }
@@ -96,6 +100,18 @@ export function useLocationManager(): UseLocationManagerReturn {
     locationManager.openLocationSettings();
   }, []);
 
+  const openBatterySettings = useCallback(() => {
+    locationManager.openBatteryOptimizationSettings();
+  }, []);
+
+  const enableKeepAwake = useCallback(async () => {
+    await locationManager.enableKeepAwake();
+  }, []);
+
+  const releaseKeepAwake = useCallback(() => {
+    locationManager.releaseKeepAwake();
+  }, []);
+
   return {
     location: locationData ? locationData.coords : null,
     accuracy: locationData ? locationData.accuracy : null,
@@ -109,6 +125,10 @@ export function useLocationManager(): UseLocationManagerReturn {
     requestLocation,
     requestBackgroundPermission,
     openLocationSettings,
+    openBatterySettings,
+    enableKeepAwake,
+    releaseKeepAwake,
+    isKeepAwakeActive: locationManager.isKeepAwakeActive(),
     startWatch,
     stopWatch,
   };

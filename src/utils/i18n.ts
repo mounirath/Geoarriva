@@ -171,6 +171,9 @@ export interface Translations {
   sideMenu: string;
   openSideMenu: string;
   destinationHeading: string;
+  gpsAndBatteryPermissions: string;
+  batteryOptimizationExemption: string;
+  testLockedScreenAlarm: string;
 }
 
 export const TRANSLATIONS: Record<Language, Translations> = {
@@ -339,6 +342,9 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     sideMenu: 'Menu latéral',
     openSideMenu: 'Ouvrir le menu latéral',
     destinationHeading: 'Destination & Arrivée',
+    gpsAndBatteryPermissions: 'Autorisations GPS & Arrière-plan Batterie',
+    batteryOptimizationExemption: 'Exemption batterie & anti-veille',
+    testLockedScreenAlarm: 'Tester l’alarme écran verrouillé (5s)',
   },
   en: {
     appName: 'arreva',
@@ -505,6 +511,9 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     sideMenu: 'Side Menu',
     openSideMenu: 'Open side menu',
     destinationHeading: 'Destination & Arrival',
+    gpsAndBatteryPermissions: 'GPS & Background Battery Permissions',
+    batteryOptimizationExemption: 'Battery Exemption & Sleep Blocker',
+    testLockedScreenAlarm: 'Test Alarm on Locked Screen (5s)',
   },
   ar: {
     appName: 'أريفا - arreva',
@@ -671,5 +680,8 @@ export const TRANSLATIONS: Record<Language, Translations> = {
     sideMenu: 'القائمة الجانبية',
     openSideMenu: 'فتح القائمة الجانبية',
     destinationHeading: 'الوجهة ومحطة الوصول',
+    gpsAndBatteryPermissions: 'أذونات نظام GPS والبطارية في الخلفية',
+    batteryOptimizationExemption: 'استثناء البطارية ومنع الإغلاق بالخلفية',
+    testLockedScreenAlarm: 'تجربة المنبه مع قفل الشاشة (5 ثوانٍ)',
   },
 };
